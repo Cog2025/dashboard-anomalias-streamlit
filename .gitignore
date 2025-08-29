@@ -1,0 +1,18 @@
+# Ignorar o arquivo de credenciais do Google (MAIS IMPORTANTE!)
+google_credentials.json
+
+# Ignorar pastas de ambiente virtual do Python
+venv/
+.venv/
+env/
+.env
+
+# Ignorar caches e arquivos compilados do Python
+__pycache__/
+*.pyc
+
+# Ignorar caches do Streamlit
+.streamlit/
+
+# Ignorar arquivos de configuração do Windows
+desktop.ini
