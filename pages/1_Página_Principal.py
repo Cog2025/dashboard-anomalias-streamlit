@@ -72,12 +72,13 @@ st.markdown("""
 
 # --- 4. Carregar e Tratar os Dados ---
 
+# Define os "escopos" - as permissões que nosso script solicitará.
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
 
-ARQUIVO_DADOS = "Aviso de Anomalias 2025.xlsx"
+# Nome das planilhas que vamos ler
 PLANILHA_NOME_1 = "DESLIGAMENTOS"
 PLANILHA_NOME_2 = "EQUIPAMENTOS"
 
