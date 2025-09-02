@@ -116,22 +116,24 @@ if 'last_submission_details' in st.session_state and st.session_state.last_submi
                 with cols[j]:
                     details = submitted_occurrences[i + j]
                     
-                    data_ocor, hora_ocor = format_datetime_card(details.get('Desligamento'))
-                    data_loop, hora_loop = format_datetime_card(details.get('Atendimento Loop'))
-                    data_terc, hora_terc = format_datetime_card(details.get('Atendimento Terceiros'))
-                    data_norm, hora_norm = format_datetime_card(details.get('Normalização'))
-                    quantidade_html = ""
-                    if "Quantidade" in details and details['Quantidade'] and str(details['Quantidade']).strip() != '':
-                        quantidade_html = f'<div class="card-item"><span class="card-label">Quantidade:</span> {details["Quantidade"]}</div>'
+                    data_ocor, hora_ocor = format_datetime_card(details.get('DESLIGAMENTO'))
+                    data_loop, hora_loop = format_datetime_card(details.get('ATENDIMENTO LOOP'))
+                    data_terc, hora_terc = format_datetime_card(details.get('ATENDIMENTO TERCEIROS'))
+                    data_norm, hora_norm = format_datetime_card(details.get('NORMALIZAÇÃO'))
 
+                    quantidade_html = ""
+                    if "QUANTIDADE" in details and details['QUANTIDADE'] and str(details['QUANTIDADE']).strip() != '':
+                        quantidade_html = f'<div class="card-item"><span class="card-label">Quantidade:</span> {details["QUANTIDADE"]}</div>'
+
+                    # CORREÇÃO: Todas as chaves .get() agora estão em MAIÚSCULAS
                     card_html = f"""
                     <div class="card-container">
                         <div class="card-title">{details.get("UG", "N/A")}</div>
                         <div class="card-item"><span class="card-label">Categoria:</span> {details.get("Categoria", "")}</div>
-                        <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {details.get("Tipo de ocorrência", "")}</div>
-                        <div class="card-item"><span class="card-label">Ativo:</span> {details.get("Ativo", "")}</div>
-                        <div class="card-item"><span class="card-label">Nome do ativo:</span> {details.get("Nome Ativo", "")}</div>
-                        <div class="card-item"><span class="card-label">Ocorrência:</span> {details.get("Ocorrência", "")}</div>
+                        <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {details.get("TIPO DE OCORRÊNCIA", "")}</div>
+                        <div class="card-item"><span class="card-label">Ativo:</span> {details.get("ATIVO", "")}</div>
+                        <div class="card-item"><span class="card-label">Nome do ativo:</span> {details.get("NOME ATIVO", "")}</div>
+                        <div class="card-item"><span class="card-label">Ocorrência:</span> {details.get("OCORRÊNCIA", "")}</div>
                         {quantidade_html}
                         <br>
                         <div class="card-item"><span class="card-label">Data da ocorrência:</span> {data_ocor}</div>
@@ -143,8 +145,8 @@ if 'last_submission_details' in st.session_state and st.session_state.last_submi
                         <div class="card-item"><span class="card-label">Data de normalização:</span> {data_norm}</div>
                         <div class="card-item"><span class="card-label">Hora de normalização:</span> {hora_norm}</div>
                         <br>
-                        <div class="card-item"><span class="card-label">Descrição:</span> {str(details.get("Descrição", "")).replace('\n', '<br>')}</div>
-                        <div class="card-item"><span class="card-label">Protocolo:</span> {details.get("Protocolo", "")}</div>
+                        <div class="card-item"><span class="card-label">Descrição:</span> {str(details.get("DESCRIÇÃO", "")).replace('\n', '<br>')}</div>
+                        <div class="card-item"><span class="card-label">Protocolo:</span> {details.get("PROTOCOLO", "")}</div>
                         <div class="card-item"><span class="card-label">OS:</span> {details.get("OS", "")}</div>
                     </div>
                     """
