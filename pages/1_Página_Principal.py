@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -85,7 +86,12 @@ PLANILHA_NOME_2 = "EQUIPAMENTOS"
 
 @st.cache_resource(ttl=600)
 def connect_to_google_sheets():
-    creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
+    # Verifica se está rodando localmente (o arquivo existe) ou na nuvem (usa st.secrets)
+    if os.path.exists(CREDS_FILE):
+        creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
+    else:
+        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPES)
+    
     client = gspread.authorize(creds)
     return client
 
