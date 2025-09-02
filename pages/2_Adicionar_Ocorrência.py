@@ -350,7 +350,21 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                     # Padroniza chaves para o card de sucesso também
                     ocorrencias_para_card = []
                     for occ in ocorrencias_para_salvar:
-                        card_dict = {k.title() if k not in ['UG', 'OS'] else k: v for k, v in occ.items()}
+                        card_dict = {
+                                    'Ug': occ.get('UG'),
+                                    'Os': occ.get('OS'),
+                                    'Tipo de ocorrência': occ.get('TIPO DE OCORRÊNCIA'),
+                                    'Ativo': occ.get('ATIVO'),
+                                    'Nome Ativo': occ.get('NOME ATIVO'),
+                                    'Ocorrência': occ.get('OCORRÊNCIA'),
+                                    'Descrição': occ.get('DESCRIÇÃO'),
+                                    'Protocolo': occ.get('PROTOCOLO'),
+                                    'Quantidade': occ.get('QUANTIDADE'),
+                                    'Desligamento': occ.get('DESLIGAMENTO'),
+                                    'Atendimento Loop': occ.get('ATENDIMENTO LOOP'),
+                                    'Atendimento Terceiros': occ.get('ATENDIMENTO TERCEIROS'),
+                                    'Normalização': occ.get('NORMALIZAÇÃO')
+                                }
                         card_dict['Categoria'] = st.session_state.categoria_selecionada
                         ocorrencias_para_card.append(card_dict)
 
