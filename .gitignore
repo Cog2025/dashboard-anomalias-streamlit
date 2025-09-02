@@ -16,3 +16,6 @@ __pycache__/
 
 # Ignorar arquivos de configuração do Windows
 desktop.ini
+
+
+secrets.txt
