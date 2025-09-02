@@ -1,245 +1,240 @@
+# 3_Editar_Ocorrência.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime, time
-import os
-import win32com.client
-import pythoncom
-
-# --- FUNÇÕES AUXILIARES (BOA PRÁTICA COLOCÁ-LAS NO TOPO) ---
-def combine_date_time(date_val, time_val):
-    """Combina data e hora em um objeto datetime, se ambos existirem."""
-    return datetime.combine(date_val, time_val) if date_val and time_val else None
-
-def find_row_by_virtual_id(sheet, virtual_id, map_colunas):
-    """
-    Itera pelas linhas do Excel, recria o ID Virtual para cada uma de forma robusta
-    e compara para encontrar o número da linha correspondente.
-    """
-    id_parts = virtual_id.split('|')
-    target_ug, target_ativo, target_ocorrencia, target_desligamento_str = id_parts
-
-    for row_idx in range(2, sheet.UsedRange.Rows.Count + 2):
-        try:
-            # Pega os valores da linha atual
-            ug_val = sheet.Range(f"{map_colunas['UG']}{row_idx}").Value
-            ativo_val = sheet.Range(f"{map_colunas['Ativo']}{row_idx}").Value
-            ocorrencia_val = sheet.Range(f"{map_colunas['Ocorrência']}{row_idx}").Value
-            desligamento_val = sheet.Range(f"{map_colunas['Desligamento']}{row_idx}").Value
-
-            # Se a linha estiver vazia, para a busca
-            if ug_val is None and ativo_val is None:
-                break
-
-            # Limpa e padroniza os textos para bater com o Pandas (str e uppercase)
-            ug_str = str(ug_val or '').upper()
-            ativo_str = str(ativo_val or '').upper()
-            ocorrencia_str = str(ocorrencia_val or '').upper()
-
-            # Trata a data de forma robusta para bater com o Pandas
-            desligamento_str_excel = ""
-            if hasattr(desligamento_val, 'year'):  # Verifica se é um objeto de data
-                desligamento_str_excel = desligamento_val.strftime('%Y-%m-%d %H:%M:%S')
-            elif desligamento_val is not None:
-                # Se não for data, tenta converter da mesma forma que o Pandas faria
-                temp_date = pd.to_datetime(desligamento_val, errors='coerce')
-                if pd.notna(temp_date):
-                    desligamento_str_excel = temp_date.strftime('%Y-%m-%d %H:%M:%S')
-
-            # Compara o ID reconstruído com o ID alvo
-            if (ug_str == target_ug and
-                ativo_str == target_ativo and
-                ocorrencia_str == target_ocorrencia and
-                desligamento_str_excel == target_desligamento_str):
-                return row_idx  # ENCONTRAMOS!
-
-        except Exception:
-            # Se der qualquer erro em uma linha, simplesmente pula para a próxima
-            continue
-            
-    return None # Não encontrou a linha
-
-def write_data_to_row(sheet, data_dict, row_number, map_colunas):
-    for key, value in data_dict.items():
-        if key in map_colunas:
-            col_letter = map_colunas[key]
-            if isinstance(value, datetime):
-                value = value.strftime('%Y-%m-%d %H:%M:%S')
-            elif value is None:
-                value = ''
-            sheet.Range(f'{col_letter}{row_number}').Value = value
-
-@st.cache_data(ttl=1)
-def carregar_dados_completos():
-    try:
-        df_d = pd.read_excel(ARQUIVO_DADOS, sheet_name=PLANILHA_DESLIGAMENTOS)
-        df_e = pd.read_excel(ARQUIVO_DADOS, sheet_name=PLANILHA_EQUIPAMENTOS)
-        df_d['Categoria'] = PLANILHA_DESLIGAMENTOS
-        df_e['Categoria'] = PLANILHA_EQUIPAMENTOS
-        df_completo = pd.concat([df_d, df_e], ignore_index=True)
-
-        mapa_renomear = {
-            'IDENTIFICADOR': 'Identificador', 'CLIENTE': 'Cliente', 'UG': 'UG', 
-            'TIPO DE OCORRÊNCIA': 'Tipo de ocorrência', 'ATIVO': 'Ativo', 
-            'NOME ATIVO': 'Nome Ativo', 'OCORRÊNCIA': 'Ocorrência',
-            'QUANTIDADE': 'Quantidade', 'SIGLA': 'Sigla', 'NORMALIZAÇÃO': 'Normalização',
-            'DESLIGAMENTO': 'Desligamento', 'OPERADOR': 'Operador', 'DESCRIÇÃO': 'Descrição',
-            'OS': 'OS', 'ATENDIMENTO LOOP': 'Atendimento Loop',
-            'ATENDIMENTO TERCEIROS': 'Atendimento Terceiros', 'PROTOCOLO': 'Protocolo',
-            'CLIENTE AVISADO': 'Cliente Avisado'  # <-- ADICIONADO AQUI
-        }
-        renomear_final = {col: mapa_renomear[col.strip().upper()] for col in df_completo.columns if col.strip().upper() in mapa_renomear}
-        df_completo.rename(columns=renomear_final, inplace=True)
-
-        df_completo.fillna('', inplace=True)
-        colunas_para_padronizar = ['Cliente', 'UG', 'Tipo de ocorrência', 'Ativo', 'Ocorrência']
-        for col in colunas_para_padronizar:
-            if col in df_completo.columns:
-                df_completo[col] = df_completo[col].astype(str).str.upper()
-        
-        # Converte todas as colunas de data de uma vez
-        for col in ['Desligamento', 'Normalização', 'Atendimento Loop', 'Atendimento Terceiros', 'Cliente Avisado']:
-             if col in df_completo.columns:
-                df_completo[col] = pd.to_datetime(df_completo[col], errors='coerce')
-
-        df_completo['ID_Unico'] = df_completo['UG'].astype(str) + "|" + \
-                                  df_completo['Ativo'].astype(str) + "|" + \
-                                  df_completo['Ocorrência'].astype(str) + "|" + \
-                                  df_completo['Desligamento'].astype(str)
-        return df_completo
-    except Exception as e:
-        st.error(f"Erro ao carregar dados: {e}")
-        return pd.DataFrame()
+import gspread
+from google.oauth2.service_account import Credentials
+from gspread_dataframe import get_as_dataframe
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(layout="wide")
 st.title("📝 Editar Ocorrência")
 
-ARQUIVO_DADOS = 'Aviso de Anomalias 2025.xlsx'
-PLANILHA_DESLIGAMENTOS = 'DESLIGAMENTOS'
-PLANILHA_EQUIPAMENTOS = 'EQUIPAMENTOS'
-
-MAPA_DESLIGAMENTOS = {
-    'UG': 'C', 'Tipo de ocorrência': 'E', 'Ativo': 'F', 'Nome Ativo': 'G', 
-    'Ocorrência': 'H', 'Operador': 'I', 'Desligamento': 'J', 
-    'Cliente Avisado': 'K',  # <-- ADICIONADO AQUI
-    'Atendimento Loop': 'L', 'Atendimento Terceiros': 'M', 'Normalização': 'N', 
-    'Descrição': 'O', 'Protocolo': 'P', 'OS': 'Q'
-}
-MAPA_EQUIPAMENTOS = {
-    'UG': 'C', 'Tipo de ocorrência': 'E', 'Ativo': 'F', 'Nome Ativo': 'G', 
-    'Ocorrência': 'H', 'Quantidade': 'I', 'Operador': 'J', 
-    'Desligamento': 'K', 
-    'Cliente Avisado': 'L',  # <-- ADICIONADO AQUI
-    'Atendimento Loop': 'M', 
-    'Atendimento Terceiros': 'N', 'Normalização': 'O', 
-    'Descrição': 'P', 'Protocolo': 'Q', 'OS': 'R'
+# --- CONFIGURAÇÃO DE ACESSO AO GOOGLE SHEETS ---
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+CREDS_FILE = "google_credentials.json"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
+PLANILHA_NOME_1 = "DESLIGAMENTOS"
+PLANILHA_NOME_2 = "EQUIPAMENTOS"
+PLANILHA_DADOS = "DADOS"
+MAPA_RENOMEAR = {
+    'IDENTIFICADOR': 'Identificador', 'CLIENTE': 'Cliente', 'UG': 'UG', 'TIPO DE OCORRÊNCIA': 'Tipo de ocorrência',
+    'ATIVO': 'Ativo', 'NOME ATIVO': 'Nome Ativo', 'OCORRÊNCIA': 'Ocorrência',
+    'QUANTIDADE': 'Quantidade', 'SIGLA': 'Sigla', 'NORMALIZAÇÃO': 'Normalização',
+    'DESLIGAMENTO': 'Desligamento', 'OPERADOR': 'Operador', 'DESCRIÇÃO': 'Descrição',
+    'OS': 'OS', 'ATENDIMENTO LOOP': 'Atendimento Loop', 
+    'ATENDIMENTO TERCEIROS': 'Atendimento Terceiros', 'PROTOCOLO': 'Protocolo', 'CLIENTE AVISADO': 'Cliente Avisado'
 }
 
-# --- LÓGICA PRINCIPAL DA PÁGINA ---
-if 'id_unico_para_editar' not in st.session_state or st.session_state['id_unico_para_editar'] is None:
-    st.warning("Selecione uma ocorrência na Página Principal para editar.")
-    st.page_link("pages/1_Página_Principal.py", label="Voltar", icon="🏠")
+def fetch_sheet_as_df(worksheet):
+    data = worksheet.get_all_values()
+    if not data: return pd.DataFrame()
+    headers = [h.replace('\xa0', '').strip() for h in data.pop(0)]
+    return pd.DataFrame(data, columns=headers)
+
+@st.cache_resource(ttl=600)
+def connect_to_google_sheets():
+    creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
+    client = gspread.authorize(creds)
+    return client
+
+@st.cache_data(ttl=60)
+def carregar_dados_completos():
+    try:
+        client = connect_to_google_sheets()
+        workbook = client.open_by_url(SPREADSHEET_URL)
+        df_desligamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_1))
+        df_equipamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_2))
+
+        df_desligamentos['Categoria'] = 'DESLIGAMENTOS'
+        df_equipamentos['Categoria']  = 'EQUIPAMENTOS'
+        df_todos_dados = pd.concat([df_desligamentos, df_equipamentos], ignore_index=True)
+
+        colunas_atuais = df_todos_dados.columns
+        renomear_final = {}
+        for col in colunas_atuais:
+            col_strip_upper = col.strip().upper()
+            if col_strip_upper in MAPA_RENOMEAR:
+                renomear_final[col] = MAPA_RENOMEAR[col_strip_upper]
+        df_todos_dados.rename(columns=renomear_final, inplace=True)
+        df_todos_dados.fillna('', inplace=True)
+        colunas_datetime = ['Normalização', 'Desligamento', 'Atendimento Loop', 'Atendimento Terceiros', 'Cliente Avisado']
+        for col in colunas_datetime:
+            if col in df_todos_dados.columns:
+                df_todos_dados[col] = pd.to_datetime(df_todos_dados[col], errors='coerce', dayfirst=False)
+        
+        df_todos_dados['ID_Unico'] = df_todos_dados['UG'].astype(str).str.upper() + "|" + \
+                                    df_todos_dados['Ativo'].astype(str).str.upper() + "|" + \
+                                    df_todos_dados['Ocorrência'].astype(str).str.upper() + "|" + \
+                                    df_todos_dados['Desligamento'].astype(str)
+        return df_todos_dados
+    except Exception as e:
+        st.error(f"Erro ao carregar dados do Google Sheets: {e}")
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=600)
+def carregar_opcoes_para_edicao():
+    try:
+        client = connect_to_google_sheets()
+        workbook = client.open_by_url(SPREADSHEET_URL)
+        df_dados = fetch_sheet_as_df(workbook.worksheet(PLANILHA_DADOS)).fillna('')
+        
+        for col in df_dados.columns:
+            if df_dados[col].dtype == 'object': 
+                df_dados[col] = df_dados[col].str.strip()
+
+        opcoes = {
+            'tipos_ocorrencia': sorted(df_dados[df_dados['TIPO DE OCORRÊNCIA'] != '']['TIPO DE OCORRÊNCIA'].unique().tolist()),
+            'ocorrencias': sorted(df_dados[df_dados['OCORRÊNCIA'] != '']['OCORRÊNCIA'].unique().tolist()),
+            'operadores': sorted(df_dados[df_dados['OPERADOR'] != '']['OPERADOR'].unique().tolist())
+        }
+        return opcoes
+    except Exception as e:
+        st.error(f"Erro ao carregar listas de opções: {e}")
+        return {}
+
+def combine_date_time(date_val, time_val):
+    if date_val and time_val:
+        return datetime.combine(date_val, time_val)
+    return None
+
+def split_datetime(dt_obj):
+    if pd.notna(dt_obj) and isinstance(dt_obj, datetime):
+        return dt_obj.date(), dt_obj.time()
+    return None, None
+
+# --- LÓGICA DA PÁGINA ---
+if 'id_unico_para_editar' not in st.session_state or not st.session_state['id_unico_para_editar']:
+    st.warning("Nenhuma ocorrência selecionada para edição.")
+    st.page_link("pages/1_Página_Principal.py", label="Voltar para a Página Principal", icon="🏠")
 else:
-    id_unico = st.session_state['id_unico_para_editar']
+    id_para_editar = st.session_state['id_unico_para_editar']
     df_completo = carregar_dados_completos()
-    
-    if not df_completo.empty:
-        ocorrencia_df = df_completo[df_completo['ID_Unico'] == id_unico]
+    opcoes_edicao = carregar_opcoes_para_edicao()
 
-        if ocorrencia_df.empty:
-            st.error(f"Erro: A ocorrência com ID '{id_unico}' não foi encontrada.")
-        else:
-            ocorrencia_data = ocorrencia_df.iloc[0].to_dict()
-            categoria = ocorrencia_data.get('Categoria')
+    if not df_completo.empty and opcoes_edicao:
+        dados_ocorrencia = df_completo[df_completo['ID_Unico'] == id_para_editar]
 
-            st.subheader(f"Editando: {ocorrencia_data.get('UG')} | {ocorrencia_data.get('Ativo')}")
+        if not dados_ocorrencia.empty:
+            ocorrencia = dados_ocorrencia.iloc[0].to_dict()
+            categoria = ocorrencia.get('Categoria', 'DESLIGAMENTOS')
 
             with st.form("edit_form"):
-                def get_date_time_values(field_name):
-                    dt_val = ocorrencia_data.get(field_name)
-                    return (dt_val.date(), dt_val.time()) if pd.notna(dt_val) and isinstance(dt_val, datetime) else (None, None)
+                st.subheader(f"Editando Ocorrência em: {categoria}")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.text_input("UG", value=ocorrencia.get('UG'), key="ug")
+                    st.text_input("Nome Ativo", value=ocorrencia.get('Nome Ativo'), key="nome_ativo")
 
-                st.write("#### Detalhes da Ocorrência")
-                cols1 = st.columns(3)
-                ug = cols1[0].text_input("UG", value=ocorrencia_data.get("UG"))
-                ativo = cols1[1].text_input("Ativo", value=ocorrencia_data.get("Ativo"))
-                nome_ativo = cols1[2].text_input("Nome do Ativo", value=ocorrencia_data.get("Nome Ativo"))
+                    tipo_ocorrencia_opts = opcoes_edicao.get('tipos_ocorrencia', [])
+                    tipo_idx = 0
+                    if ocorrencia.get('Tipo de ocorrência') in tipo_ocorrencia_opts:
+                        tipo_idx = tipo_ocorrencia_opts.index(ocorrencia.get('Tipo de ocorrência'))
+                    st.selectbox("Tipo de Ocorrência", options=tipo_ocorrencia_opts, index=tipo_idx, key="tipo_ocorrencia")
 
-                cols2 = st.columns(3)
-                tipo_ocorrencia = cols2[0].text_input("Tipo de Ocorrência", value=ocorrencia_data.get("Tipo de ocorrência"))
-                ocorrencia = cols2[1].text_input("Ocorrência", value=ocorrencia_data.get("Ocorrência"))
-                quantidade_val = ocorrencia_data.get("Quantidade", 1)
-                quantidade = cols2[2].number_input("Quantidade", value=int(quantidade_val if pd.notna(quantidade_val) and quantidade_val != '' else 1), step=1) if categoria == PLANILHA_EQUIPAMENTOS else None
-                
-                st.write("#### Datas e Horários")
-                d_des, t_des = get_date_time_values('Desligamento')
-                cols_des = st.columns(2)
-                data_desligamento = cols_des[0].date_input("Data do Desligamento", value=d_des)
-                hora_desligamento = cols_des[1].time_input("Hora do Desligamento", value=t_des)
-                
-                d_ca, t_ca = get_date_time_values('Cliente Avisado')
-                cols_ca = st.columns(2)
-                data_cliente_avisado = cols_ca[0].date_input("Data Cliente Avisado", value=d_ca)
-                hora_cliente_avisado = cols_ca[1].time_input("Hora Cliente Avisado", value=t_ca)
+                    ocorrencia_opts = opcoes_edicao.get('ocorrencias', [])
+                    ocorrencia_idx = 0
+                    if ocorrencia.get('Ocorrência') in ocorrencia_opts:
+                        ocorrencia_idx = ocorrencia_opts.index(ocorrencia.get('Ocorrência'))
+                    st.selectbox("Ocorrência", options=ocorrencia_opts, index=ocorrencia_idx, key="ocorrencia")
 
-                d_loop, t_loop = get_date_time_values('Atendimento Loop')
-                cols_loop = st.columns(2)
-                data_loop = cols_loop[0].date_input("Data Atendimento LOOP", value=d_loop)
-                hora_loop = cols_loop[1].time_input("Hora Atendimento LOOP", value=t_loop)
-                
-                d_terc, t_terc = get_date_time_values('Atendimento Terceiros')
-                cols_terc = st.columns(2)
-                data_terceiros = cols_terc[0].date_input("Data Atendimento Terceiros", value=d_terc)
-                hora_terceiros = cols_terc[1].time_input("Hora Atendimento Terceiros", value=t_terc)
-                
-                d_norm, t_norm = get_date_time_values('Normalização')
-                cols_norm = st.columns(2)
-                data_normalizacao = cols_norm[0].date_input("Data de Normalização", value=d_norm)
-                hora_normalizacao = cols_norm[1].time_input("Hora de Normalização", value=t_norm)
+                    operador_opts = opcoes_edicao.get('operadores', [])
+                    operador_idx = 0
+                    if ocorrencia.get('Operador') in operador_opts:
+                        operador_idx = operador_opts.index(ocorrencia.get('Operador'))
+                    st.selectbox("Operador", options=operador_opts, index=operador_idx, key="operador")
 
-                st.write("#### Outras Informações")
-                descricao = st.text_area("Descrição", value=str(ocorrencia_data.get("Descrição", "")))
-                cols7 = st.columns(3)
-                protocolo = cols7[0].text_input("Protocolo", value=str(ocorrencia_data.get("Protocolo", "")))
-                os_val = cols7[1].text_input("OS", value=str(ocorrencia_data.get("OS", "")))
-                operador = cols7[2].text_input("Operador", value=str(ocorrencia_data.get("Operador", "")))
-                
+                    st.text_area("Descrição", value=ocorrencia.get('Descrição'), key="descricao")
+                    st.text_input("OS", value=ocorrencia.get('OS'), key="os")
+                    st.text_input("Protocolo", value=ocorrencia.get('Protocolo'), key="protocolo")
+
+                with col2:
+                    norm_date, norm_time = split_datetime(ocorrencia.get('Normalização'))
+                    loop_date, loop_time = split_datetime(ocorrencia.get('Atendimento Loop'))
+                    terc_date, terc_time = split_datetime(ocorrencia.get('Atendimento Terceiros'))
+                    avis_date, avis_time = split_datetime(ocorrencia.get('Cliente Avisado'))
+                    
+                    st.date_input("Data Normalização", value=norm_date, key="norm_date")
+                    st.time_input("Hora Normalização", value=norm_time, key="norm_time")
+                    st.date_input("Data Atendimento Loop", value=loop_date, key="loop_date")
+                    st.time_input("Hora Atendimento Loop", value=loop_time, key="loop_time")
+                    st.date_input("Data Atendimento Terceiros", value=terc_date, key="terc_date")
+                    st.time_input("Hora Atendimento Terceiros", value=terc_time, key="terc_time")
+                    st.date_input("Data Cliente Avisado", value=avis_date, key="avis_date")
+                    st.time_input("Hora Cliente Avisado", value=avis_time, key="avis_time")
+
                 submitted = st.form_submit_button("✅ Salvar Alterações")
 
                 if submitted:
-                    updated_data = {
-                        'UG': ug, 'Ativo': ativo, 'Nome Ativo': nome_ativo,
-                        'Tipo de ocorrência': tipo_ocorrencia, 'Ocorrência': ocorrencia,
-                        'Desligamento': combine_date_time(data_desligamento, hora_desligamento),
-                        'Cliente Avisado': combine_date_time(data_cliente_avisado, hora_cliente_avisado), # <-- LINHA CORRIGIDA E ADICIONADA AQUI
-                        'Atendimento Loop': combine_date_time(data_loop, hora_loop),
-                        'Atendimento Terceiros': combine_date_time(data_terceiros, hora_terceiros),
-                        'Normalização': combine_date_time(data_normalizacao, hora_normalizacao),
-                        'Descrição': descricao, 'Protocolo': protocolo, 'OS': os_val, 'Operador': operador
-                    }
-                    if quantidade is not None: updated_data['Quantidade'] = quantidade
-
-                    excel, workbook, sheet = None, None, None
                     try:
-                        pythoncom.CoInitialize()
-                        excel = win32com.client.Dispatch("Excel.Application")
-                        workbook = excel.Workbooks.Open(os.path.abspath(ARQUIVO_DADOS))
-                        sheet = workbook.Sheets(categoria)
+                        client = connect_to_google_sheets()
+                        workbook = client.open_by_url(SPREADSHEET_URL)
+                        worksheet = workbook.worksheet(categoria)
+                        all_data = worksheet.get_all_values()
+                        headers = all_data[0]
                         
-                        mapa = MAPA_EQUIPAMENTOS if categoria == PLANILHA_EQUIPAMENTOS else MAPA_DESLIGAMENTOS
-                        row_to_update = find_row_by_virtual_id(sheet, id_unico, mapa)
+                        row_to_edit = -1
+                        idx_ug = headers.index('UG')
+                        idx_ativo = headers.index('ATIVO')
+                        idx_ocorrencia = headers.index('OCORRÊNCIA')
+                        idx_desligamento = headers.index('DESLIGAMENTO')
+
+                        for i, row in enumerate(all_data[1:], start=2):
+                            try:
+                                desligamento_dt = pd.to_datetime(row[idx_desligamento], errors='coerce')
+                                if pd.isna(desligamento_dt): continue
+                                current_id = f"{row[idx_ug].upper()}|{row[idx_ativo].upper()}|{row[idx_ocorrencia].upper()}|{desligamento_dt}"
+                                if current_id == id_para_editar:
+                                    row_to_edit = i
+                                    break
+                            except (IndexError, ValueError): continue
                         
-                        if row_to_update:
-                            write_data_to_row(sheet, updated_data, row_to_update, mapa)
+                        if row_to_edit != -1:
+                            dados_atualizados = ocorrencia.copy()
+                            dados_atualizados['UG'] = st.session_state.ug
+                            dados_atualizados['Nome Ativo'] = st.session_state.nome_ativo
+                            dados_atualizados['Tipo de ocorrência'] = st.session_state.tipo_ocorrencia
+                            dados_atualizados['Ocorrência'] = st.session_state.ocorrencia
+                            dados_atualizados['Operador'] = st.session_state.operador
+                            dados_atualizados['Descrição'] = st.session_state.descricao
+                            dados_atualizados['OS'] = st.session_state.os
+                            dados_atualizados['Protocolo'] = st.session_state.protocolo
+                            
+                            def format_dt(dt_obj):
+                                return dt_obj.strftime('%Y-%m-%d %H:%M:%S') if dt_obj else ''
+
+                            dados_atualizados['Normalização'] = format_dt(combine_date_time(st.session_state.norm_date, st.session_state.norm_time))
+                            dados_atualizados['Atendimento Loop'] = format_dt(combine_date_time(st.session_state.loop_date, st.session_state.loop_time))
+                            dados_atualizados['Atendimento Terceiros'] = format_dt(combine_date_time(st.session_state.terc_date, st.session_state.terc_time))
+                            dados_atualizados['Cliente Avisado'] = format_dt(combine_date_time(st.session_state.avis_date, st.session_state.avis_time))
+                            
+                            mapa_renomear_inverso = {v: k for k, v in MAPA_RENOMEAR.items()}
+                            linha_para_atualizar = []
+                            for h in headers:
+                                h_strip = h.strip()
+                                key_title_case = MAPA_RENOMEAR.get(h_strip.upper(), h_strip)
+                                valor = dados_atualizados.get(key_title_case, '')
+
+                                # --- CORREÇÃO APLICADA AQUI ---
+                                # Verifica se o valor é um objeto de data/hora e o converte para texto
+                                if isinstance(valor, (datetime, pd.Timestamp)):
+                                    valor = valor.strftime('%Y-%m-%d %H:%M:%S')
+                                # ---------------------------------
+                                
+                                linha_para_atualizar.append(valor)
+                            
+                            worksheet.update(f'A{row_to_edit}', [linha_para_atualizar], value_input_option='USER_ENTERED')
+
                             st.success("Ocorrência atualizada com sucesso!")
                             st.cache_data.clear()
                         else:
-                            st.error("Não foi possível encontrar a linha no Excel para ATUALIZAR. Verifique a função de busca.")
+                            st.error("Não foi possível encontrar a linha na Planilha Google para editar.")
                     except Exception as e:
-                        st.error(f"Erro ao salvar: {e}")
-                    finally:
-                        if 'workbook' in locals() and workbook: workbook.Save(); workbook.Close(SaveChanges=True)
-                        if 'excel' in locals() and excel: excel.Quit()
-                        pythoncom.CoUninitialize()
-
-            st.page_link("pages/1_Página_Principal.py", label="Voltar", icon="🏠")
+                        st.error(f"Ocorreu um erro ao atualizar a Planilha Google: {e}")
+        else:
+            st.error("O ID da ocorrência selecionada não foi encontrado nos dados carregados.")

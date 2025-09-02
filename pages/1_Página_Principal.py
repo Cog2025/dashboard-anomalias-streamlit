@@ -79,35 +79,43 @@ SCOPES = [
 ]
 
 # Nome das planilhas que vamos ler
+CREDS_FILE = "google_credentials.json"
 PLANILHA_NOME_1 = "DESLIGAMENTOS"
 PLANILHA_NOME_2 = "EQUIPAMENTOS"
 
-@st.cache_data(ttl=600) # Aumentamos o cache para 10 minutos para não sobrecarregar a API
-def carregar_dados_google_sheets():
-    """
-    Função para carregar e processar dados de uma Planilha Google.
-    """
-    try:
-        # Carrega as credenciais a partir do arquivo JSON.
-        # Para o Streamlit Cloud, usaremos o sistema de "Secrets".
-        # A linha abaixo funciona para teste local se o arquivo estiver na mesma pasta.
-        # Para deploy, vamos adaptar isso.
-        creds = Credentials.from_service_account_file("google_credentials.json", scopes=SCOPES)
-        client = gspread.authorize(creds)
+@st.cache_resource(ttl=600)
+def connect_to_google_sheets():
+    creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
+    client = gspread.authorize(creds)
+    return client
 
-        # Abre a planilha pelo URL.
+def fetch_sheet_as_df(worksheet):
+    data = worksheet.get_all_values()
+    if not data:
+        return pd.DataFrame()
+    
+    headers = [header.strip() for header in data.pop(0)]
+    df = pd.DataFrame(data, columns=headers)
+    return df
+
+@st.cache_data(ttl=600)
+def carregar_dados_google_sheets():
+    try:
+        client = connect_to_google_sheets()
         spreadsheet_url = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
         workbook = client.open_by_url(spreadsheet_url)
 
-        # Carrega as abas como DataFrames do Pandas
-        sheet_desligamentos = workbook.worksheet(PLANILHA_NOME_1)
-        df_desligamentos = get_as_dataframe(sheet_desligamentos, dtype={'IDENTIFICADOR': str}).dropna(how='all')
+        df_desligamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_1))
+        df_equipamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_2))
 
-        sheet_equipamentos = workbook.worksheet(PLANILHA_NOME_2)
-        df_equipamentos = get_as_dataframe(sheet_equipamentos, dtype={'IDENTIFICADOR': str}).dropna(how='all')
+        if 'IDENTIFICADOR' in df_desligamentos.columns:
+            df_desligamentos['IDENTIFICADOR'] = df_desligamentos['IDENTIFICADOR'].astype(str)
+        if 'IDENTIFICADOR' in df_equipamentos.columns:
+            df_equipamentos['IDENTIFICADOR'] = df_equipamentos['IDENTIFICADOR'].astype(str)
 
-        # --- O restante do código é exatamente o mesmo da sua função original ---
-
+        df_desligamentos.dropna(how='all', inplace=True)
+        df_equipamentos.dropna(how='all', inplace=True)
+        
         df_desligamentos['Categoria'] = 'DESLIGAMENTOS'
         df_equipamentos['Categoria']  = 'EQUIPAMENTOS'
         df_todos_dados = pd.concat([df_desligamentos, df_equipamentos], ignore_index=True)
@@ -130,17 +138,14 @@ def carregar_dados_google_sheets():
 
         df_todos_dados.fillna('', inplace=True)
 
-        colunas_para_padronizar = ['Cliente', 'UG', 'Tipo de ocorrência', 'Ativo', 'Ocorrência']
-        for col in colunas_para_padronizar:
-            if col in df_todos_dados.columns:
-                df_todos_dados[col] = df_todos_dados[col].astype(str).str.upper()
-
-        df_todos_dados = df_todos_dados[
-            (df_todos_dados['Cliente'] != '') &
-            (df_todos_dados['UG'] != '') &
-            (df_todos_dados['Sigla'] != '')
-        ].copy()
-
+        # Garante que a coluna 'Cliente' existe antes de filtrar
+        if 'Cliente' in df_todos_dados.columns:
+            df_todos_dados = df_todos_dados[
+                (df_todos_dados['Cliente'] != '') &
+                (df_todos_dados['UG'] != '') &
+                (df_todos_dados['Sigla'] != '')
+            ].copy()
+        
         colunas_datetime = ['Normalização', 'Desligamento', 'Atendimento Loop', 'Atendimento Terceiros', 'Cliente Avisado']
         for col in colunas_datetime:
             if col in df_todos_dados.columns:
@@ -151,21 +156,28 @@ def carregar_dados_google_sheets():
             if col in df_todos_dados.columns:
                  df_todos_dados[col] = df_todos_dados[col].astype(str).fillna('')
 
-        df_todos_dados['Data'] = df_todos_dados['Desligamento'].dt.strftime('%Y-%m-%d')
-        df_todos_dados['Hora'] = df_todos_dados['Desligamento'].dt.strftime('%H:%M:%S')
-        df_todos_dados['Mês']  = df_todos_dados['Desligamento'].dt.strftime('%B').map(meses_traducao)
-        df_todos_dados['Ano']  = df_todos_dados['Desligamento'].dt.year.fillna(0).astype(int)
-        df_todos_dados['Dia']  = df_todos_dados['Desligamento'].dt.day.fillna(0).astype(int)
+        # Verifica se a coluna 'Desligamento' existe e não está vazia antes de processar
+        if 'Desligamento' in df_todos_dados.columns and not df_todos_dados['Desligamento'].isnull().all():
+            df_todos_dados['Data'] = df_todos_dados['Desligamento'].dt.strftime('%Y-%m-%d')
+            df_todos_dados['Hora'] = df_todos_dados['Desligamento'].dt.strftime('%H:%M:%S')
+            df_todos_dados['Mês']  = df_todos_dados['Desligamento'].dt.strftime('%B').map(meses_traducao)
+            df_todos_dados['Ano']  = df_todos_dados['Desligamento'].dt.year.fillna(0).astype(int)
+            df_todos_dados['Dia']  = df_todos_dados['Desligamento'].dt.day.fillna(0).astype(int)
 
-        df_todos_dados['ID_Unico'] = df_todos_dados['UG'].astype(str) + "|" + \
-                                    df_todos_dados['Ativo'].astype(str) + "|" + \
-                                    df_todos_dados['Ocorrência'].astype(str) + "|" + \
+            df_todos_dados['ID_Unico'] = df_todos_dados['UG'].astype(str).str.upper() + "|" + \
+                                    df_todos_dados['Ativo'].astype(str).str.upper() + "|" + \
+                                    df_todos_dados['Ocorrência'].astype(str).str.upper() + "|" + \
                                     df_todos_dados['Desligamento'].astype(str)
+        else:
+            # Cria colunas vazias se 'Desligamento' não existir, para evitar erros posteriores
+            for col in ['Data', 'Hora', 'Mês', 'Ano', 'Dia', 'ID_Unico']:
+                df_todos_dados[col] = None
+
 
         return df_todos_dados
 
     except FileNotFoundError:
-        st.error("Erro: O arquivo de credenciais 'google_credentials.json' não foi encontrado. Verifique se ele está na mesma pasta do seu script.")
+        st.error(f"Erro: O arquivo de credenciais '{CREDS_FILE}' não foi encontrado. Verifique se ele está na mesma pasta do seu script principal (app.py).")
         return pd.DataFrame()
     except gspread.exceptions.SpreadsheetNotFound:
         st.error("Erro: Planilha não encontrada. Verifique o link e se você compartilhou a planilha com o email da conta de serviço.")
@@ -446,6 +458,7 @@ if not df_todos_dados.empty:
         # Criamos uma coluna 'Display' para facilitar a seleção no selectbox
         df_sorted['Display'] = df_sorted['UG'].astype(str) + " | " + \
                                df_sorted['Ativo'].astype(str) + " | " + \
+                               df_sorted['Nome Ativo'].astype(str) + " | " + \
                                df_sorted['Ocorrência'].astype(str) + " | " + \
                                df_sorted['Desligamento'].dt.strftime('%d/%m/%Y %H:%M')
 
@@ -508,6 +521,7 @@ if not df_todos_dados.empty:
                         ativo = html.escape(str(row.get("Ativo", "")))
                         nome_ativo = html.escape(str(row.get("Nome Ativo", "")))
                         ocorrencia = html.escape(str(row.get("Ocorrência", "")))
+                        operador = html.escape(str(row.get("Operador", "")))
                         descricao = html.escape(str(row.get("Descrição", ""))).replace('\n', '<br>')
                         protocolo = html.escape(str(row.get("Protocolo", "")))
                         os = html.escape(str(row.get("OS", "")))
@@ -535,6 +549,7 @@ if not df_todos_dados.empty:
                             <div class="card-item"><span class="card-label">Ativo:</span> {ativo}</div>
                             <div class="card-item"><span class="card-label">Nome do ativo:</span> {nome_ativo}</div>
                             <div class="card-item"><span class="card-label">Ocorrência:</span> {ocorrencia}</div>
+                            <div class="card-item"><span class="card-label">Operador:</span> {operador}</div>
                             {quantidade_html}
                             <br>
                             <div class="card-item"><span class="card-label">Data da ocorrência:</span> {data_ocor}</div>
