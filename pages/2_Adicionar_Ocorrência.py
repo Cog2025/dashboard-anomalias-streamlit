@@ -286,7 +286,6 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
             cliente_final = client_df['CLIENTE'].iloc[0]
             sigla_final = client_df['SIGLA'].iloc[0]
             
-            # --- CORREÇÃO APLICADA AQUI: Chaves padronizadas para MAIÚSCULAS ---
             ocorrencia_base = {
                 'CLIENTE': cliente_final, 'UG': ug_final, 'SIGLA': sigla_final,
                 'TIPO DE OCORRÊNCIA': st.session_state.tipo_ocorrencia,
@@ -340,7 +339,7 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                     for col_header in colunas_planilha:
                         col_strip = col_header.strip()
                         if col_strip in COLUNAS_EDITAVEIS:
-                            valor = occ.get(col_strip, '') # Busca direta com a chave em MAIÚSCULAS
+                            valor = occ.get(col_strip, '')
                             linha_ordenada.append('' if valor == '-' else valor)
                         else:
                             linha_ordenada.append(None)
@@ -349,28 +348,11 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                 if linhas_para_adicionar:
                     worksheet.update(f'A{start_row}', linhas_para_adicionar, value_input_option='USER_ENTERED')
                     
-                    # Padroniza chaves para o card de sucesso também
-                    ocorrencias_para_card = []
-                    for occ in ocorrencias_para_salvar:
-                        card_dict = {
-                                    'Ug': occ.get('UG'),
-                                    'Os': occ.get('OS'),
-                                    'Tipo de ocorrência': occ.get('TIPO DE OCORRÊNCIA'),
-                                    'Ativo': occ.get('ATIVO'),
-                                    'Nome Ativo': occ.get('NOME ATIVO'),
-                                    'Ocorrência': occ.get('OCORRÊNCIA'),
-                                    'Descrição': occ.get('DESCRIÇÃO'),
-                                    'Protocolo': occ.get('PROTOCOLO'),
-                                    'Quantidade': occ.get('QUANTIDADE'),
-                                    'Desligamento': occ.get('DESLIGAMENTO'),
-                                    'Atendimento Loop': occ.get('ATENDIMENTO LOOP'),
-                                    'Atendimento Terceiros': occ.get('ATENDIMENTO TERCEIROS'),
-                                    'Normalização': occ.get('NORMALIZAÇÃO')
-                                }
-                        card_dict['Categoria'] = st.session_state.categoria_selecionada
-                        ocorrencias_para_card.append(card_dict)
+                    # O dicionário 'ocorrencias_para_salvar' já está no formato correto.
+                    for item_dict in ocorrencias_para_salvar:
+                        item_dict['Categoria'] = st.session_state.categoria_selecionada
 
-                    st.session_state.last_submission_details = ocorrencias_para_card
+                    st.session_state.last_submission_details = ocorrencias_para_salvar
                     st.rerun()
 
             except Exception as e:
