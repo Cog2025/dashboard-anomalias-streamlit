@@ -4,6 +4,7 @@ import io
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from time import time
 import html
 import gspread
 from google.oauth2.service_account import Credentials
@@ -116,7 +117,7 @@ def fetch_sheet_as_df(worksheet):
 
 
 @st.cache_data(ttl=600)
-def carregar_dados_google_sheets():
+def carregar_dados_google_sheets(cache_buster: int = 0):
     try:
         client = connect_to_google_sheets()
         spreadsheet_url = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
@@ -216,8 +217,10 @@ def carregar_dados_google_sheets():
 
 
 
+if 'cache_buster' not in st.session_state:
+    st.session_state.cache_buster = int(time())  # novo valor a cada reload da página
 
-df_todos_dados = carregar_dados_google_sheets()
+df_todos_dados = carregar_dados_google_sheets(st.session_state.cache_buster)
 
 
 
@@ -276,6 +279,7 @@ with col_kpi1:
 col_top_left, col_top_right = st.columns([0.2, 0.8])
 with col_top_left:
     if st.button('Atualizar Dados'):
+        st.session_state.cache_buster = int(time())
         st.cache_data.clear()
         st.rerun()
 
@@ -462,22 +466,39 @@ if not df_todos_dados.empty:
 
 
     # --- Aplicação dos Filtros ---
-    meses_selecionados = [mes for mes in meses_cronologicos if st.session_state.get(f'cb_mes_{mes}')]
-    anos_selecionados = [ano for ano in anos_disponiveis if st.session_state.get(f'cb_ano_{ano}')]
-    dias_selecionados = [dia for dia in range(1, 32) if st.session_state.get(f'cb_dia_{dia}')]
+    meses_selecionados = [mes for mes in meses_cronologicos if st.session_state.get(f'cb_mes_{mes}', False)]
+    anos_selecionados  = [ano for ano in anos_disponiveis     if st.session_state.get(f'cb_ano_{ano}', False)]
+    dias_selecionados  = [dia for dia in range(1, 32)         if st.session_state.get(f'cb_dia_{dia}', False)]
 
-    df_filtrado = df_todos_dados[
-        (df_todos_dados['Mês'].isin(meses_selecionados)) &
-        (df_todos_dados['Ano'].isin(anos_selecionados)) &
-        (df_todos_dados['Dia'].isin(dias_selecionados)) &
-        (df_todos_dados['Categoria'].isin(st.session_state.filtros_categorias)) &
-        (df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)) &
-        (df_todos_dados['UG'].isin(st.session_state.filtros_ugs)) &
-        (df_todos_dados['Tipo de ocorrência'].isin(st.session_state.filtros_tipos)) &
-        (df_todos_dados['Ativo'].isin(st.session_state.filtros_ativos)) &
-        (df_todos_dados['Ocorrência'].isin(st.session_state.filtros_ocorrencias))
-    ].copy()
-    
+    # Conjuntos disponíveis no período atual
+    set_anos_disp  = set(anos_disponiveis)
+    set_meses_disp = set(meses_cronologicos)
+    # Dias disponíveis dependem do período atual; use os que você já calculou
+    # dias_disponiveis já existe acima no seu código
+    set_dias_disp  = set(dias_disponiveis)
+
+    # Detecta se o usuário realmente selecionou tudo em cada dimensão
+    all_anos  = set(anos_selecionados)  == set_anos_disp and len(set_anos_disp) > 0
+    all_meses = set(meses_selecionados) == set_meses_disp and len(set_meses_disp) > 0
+    all_dias  = set(dias_selecionados)  == set_dias_disp and len(set_dias_disp) > 0
+
+    s_ano = df_todos_dados['Ano']
+    s_mes = df_todos_dados['Mês']
+    s_dia = df_todos_dados['Dia']
+
+    # Máscaras de período (sempre ativas); quando "tudo" for selecionado, inclui também ausentes/0
+    m_ano = s_ano.isin(anos_selecionados)  if not all_anos  else (s_ano.isin(anos_selecionados)  | s_ano.isna() | (s_ano == 0))
+    m_mes = s_mes.isin(meses_selecionados) if not all_meses else (s_mes.isin(meses_selecionados) | s_mes.isna() | (s_mes.astype(str) == ''))
+    m_dia = s_dia.isin(dias_selecionados)  if not all_dias  else (s_dia.isin(dias_selecionados)  | s_dia.isna() | (s_dia == 0))
+
+    m_cat = df_todos_dados['Categoria'].isin(st.session_state.filtros_categorias)
+    m_cli = df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)
+    m_ug  = df_todos_dados['UG'].isin(st.session_state.filtros_ugs)
+    m_tip = df_todos_dados['Tipo de ocorrência'].isin(st.session_state.filtros_tipos)
+    m_atv = df_todos_dados['Ativo'].isin(st.session_state.filtros_ativos)
+    m_ocr = df_todos_dados['Ocorrência'].isin(st.session_state.filtros_ocorrencias)
+
+    df_filtrado = df_todos_dados[m_ano & m_mes & m_dia & m_cat & m_cli & m_ug & m_tip & m_atv & m_ocr].copy()
     df_desligadas = df_filtrado[pd.isna(df_filtrado['Normalização']) | (df_filtrado['Normalização'] == '')].copy()
     
     with col_kpi2:
