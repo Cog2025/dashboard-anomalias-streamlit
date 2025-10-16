@@ -274,6 +274,10 @@ if not df_todos_dados.empty:
             for ano in anos_disponiveis:
                 st.checkbox(str(ano), key=f'cb_ano_{ano}', value=ano in st.session_state.filtros_anos)
 
+            # Sincronizar checkboxes com filtros_anos
+            anos_checkboxes_selecionados = [ano for ano in anos_disponiveis if st.session_state.get(f'cb_ano_{ano}', False)]
+            st.session_state.filtros_anos = anos_checkboxes_selecionados
+
 
 
         col_botoes = st.columns(2)
@@ -292,6 +296,10 @@ if not df_todos_dados.empty:
         with st.expander("Expandir meses"):
             for mes in meses_disponiveis:
                 st.checkbox(mes, key=f'cb_mes_{mes}', value=mes in st.session_state.filtros_meses)
+
+            # Sincronizar checkboxes com filtros_meses
+            meses_checkboxes_selecionados = [mes for mes in meses_disponiveis if st.session_state.get(f'cb_mes_{mes}', False)]
+            st.session_state.filtros_meses = meses_checkboxes_selecionados
 
 
         col_botoes = st.columns(2)
