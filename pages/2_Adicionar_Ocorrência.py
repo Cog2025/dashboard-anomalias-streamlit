@@ -358,12 +358,19 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
 
                     # Limpar TODOS os campos do formulário (exceto last_submission_details)
                     keys_to_preserve = {'last_submission_details'}
-                    keys_to_delete = [k for k in list(st.session_state.keys()) if k not in keys_to_preserve]
                     
-                    for key in keys_to_delete:
-                        del st.session_state[key]
-
+                    # Criar cópia da lista de keys para evitar problemas durante iteração
+                    all_keys = list(st.session_state.keys())
+                    
+                    for key in all_keys:
+                        if key not in keys_to_preserve:
+                            try:
+                                del st.session_state[key]
+                            except:
+                                pass
+                    
                     st.rerun()
+
 
             except Exception as e:
                 st.error(f"Ocorreu um erro ao salvar na Planilha Google: {e}")
