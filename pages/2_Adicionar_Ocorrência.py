@@ -358,4 +358,28 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                     st.rerun()
 
             except Exception as e:
+ncias_para_salvar' já está no formato correto.
+                    for item_dict in ocorrencias_para_salvar:
+                        item_dict['Categoria'] = st.session_state.categoria_selecionada
+
+                    st.session_state.last_submission_details = ocorrencias_para_salvar
+                    st.rerun()
+
+            except Exception as e:
+ncias_para_salvar' já está no formato correto.
+                    for item_dict in ocorrencias_para_salvar:
+                        item_dict['Categoria'] = st.session_state.categoria_selecionada
+
+                    st.session_state.last_submission_details = ocorrencias_para_salvar
+                    st.rerun()
+
+            except Exception as e:
+ncias_para_salvar' já está no formato correto.
+                    for item_dict in ocorrencias_para_salvar:
+                        item_dict['Categoria'] = st.session_state.categoria_selecionada
+
+                    st.session_state.last_submission_details = ocorrencias_para_salvar
+                    st.rerun()
+
+            except Exception as e:
                 st.error(f"Ocorreu um erro ao salvar na Planilha Google: {e}")
