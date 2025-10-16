@@ -510,7 +510,12 @@ if not df_todos_dados.empty:
         """, unsafe_allow_html=True)
     
     if not df_desligadas.empty:
-        df_desligadas['Tempo em Segundos'] = (datetime.now() - df_desligadas['Desligamento']).dt.total_seconds().astype(int)
+        mask_valid = df_desligadas['Desligamento'].notna()
+        df_desligadas.loc[mask_valid, 'Tempo em Segundos'] = (
+            (datetime.now() - df_desligadas.loc[mask_valid, 'Desligamento']).dt.total_seconds().astype(int)
+        )
+        df_desligadas.loc[~mask_valid, 'Tempo em Segundos'] = 0
+
 
 
         # --- CONTROLES DE ORDENAÇÃO ---
