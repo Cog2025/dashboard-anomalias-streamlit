@@ -354,25 +354,16 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                     for item_dict in ocorrencias_para_salvar:
                         item_dict['Categoria'] = st.session_state.categoria_selecionada
 
-                    # Salvar temporariamente antes de limpar
-                    temp_save = ocorrencias_para_salvar.copy()
+                    st.session_state.last_submission_details = ocorrencias_para_salvar
 
-                    # Limpar TUDO do session_state primeiro
-                    all_keys = list(st.session_state.keys())
-                    for key in all_keys:
-                        try:
-                            del st.session_state[key]
-                        except:
-                            pass
-
-                    # Agora salvar last_submission_details no session_state LIMPO
-                    st.session_state.last_submission_details = temp_save
+                    # Limpar TODOS os campos do formulário (exceto last_submission_details)
+                    keys_to_preserve = {'last_submission_details'}
+                    keys_to_delete = [k for k in list(st.session_state.keys()) if k not in keys_to_preserve]
+                    
+                    for key in keys_to_delete:
+                        del st.session_state[key]
 
                     st.rerun()
-
-
-
-
 
             except Exception as e:
                 st.error(f"Ocorreu um erro ao salvar na Planilha Google: {e}")
