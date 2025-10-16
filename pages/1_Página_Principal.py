@@ -272,7 +272,9 @@ if not df_todos_dados.empty:
                         st.session_state.filtros_anos.remove(ano_val)
 
             for ano in anos_disponiveis:
-                st.checkbox(str(ano), key=f'cb_ano_{ano}', value=ano in st.session_state.filtros_anos, on_change=sync_ano, args=(ano,))
+                st.checkbox(str(ano), key=f'cb_ano_{ano}', value=ano in st.session_state.filtros_anos)
+
+
 
         col_botoes = st.columns(2)
         with col_botoes[0]:
@@ -288,16 +290,9 @@ if not df_todos_dados.empty:
         st.write("### Mês(es):")
         meses_disponiveis = meses_cronologicos
         with st.expander("Expandir meses"):
-            def sync_mes(mes_val):
-                if st.session_state[f'cb_mes_{mes_val}']:
-                    if mes_val not in st.session_state.filtros_meses:
-                        st.session_state.filtros_meses.append(mes_val)
-                else:
-                    if mes_val in st.session_state.filtros_meses:
-                        st.session_state.filtros_meses.remove(mes_val)
-
             for mes in meses_disponiveis:
-                st.checkbox(mes, key=f'cb_mes_{mes}', value=mes in st.session_state.filtros_meses, on_change=sync_mes, args=(mes,))
+                st.checkbox(mes, key=f'cb_mes_{mes}', value=mes in st.session_state.filtros_meses)
+
 
         col_botoes = st.columns(2)
         with col_botoes[0]:
@@ -323,16 +318,9 @@ if not df_todos_dados.empty:
             dias_cols = st.columns(7)
             for i, dia in enumerate(range(1, 32)):
                 with dias_cols[i % 7]:
-                    def sync_dia(dia_val):
-                        if st.session_state[f'cb_dia_{dia_val}']:
-                            if dia_val not in st.session_state.filtros_dias:
-                                st.session_state.filtros_dias.append(dia_val)
-                        else:
-                            if dia_val in st.session_state.filtros_dias:
-                                st.session_state.filtros_dias.remove(dia_val)
 
                     if dia in dias_disponiveis:
-                        st.checkbox(str(dia), key=f'cb_dia_{dia}', value=dia in st.session_state.filtros_dias, on_change=sync_dia, args=(dia,))
+                        st.checkbox(str(dia), key=f'cb_dia_{dia}', value=dia in st.session_state.filtros_dias)
 
                     else:
                         st.checkbox(str(dia), key=f'cb_dia_{dia}', disabled=True)
