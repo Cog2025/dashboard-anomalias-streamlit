@@ -221,12 +221,28 @@ is_multiplos_itens = len(items_para_processar) > 1
 
 with st.container(border=True):
     if is_multiplos_itens:
+        # Utilitário para marcar/desmarcar todos os "mesmo dia/horário"
+        def toggle_mesmos():
+            master_val = st.session_state.get(f'master_mesmos_{reset_counter}', False)
+            for _label, _key in eventos_map.items():
+                st.session_state[f'mesmo_dia_{_key}_{reset_counter}'] = master_val
+                st.session_state[f'mesmo_horario_{_key}_{reset_counter}'] = master_val
+        # Checkbox mestre
+        st.checkbox(
+            "Usar mesma data e hora para todos os eventos",
+            key=f'master_mesmos_{reset_counter}',
+            on_change=toggle_mesmos
+        )
+
+
         st.markdown("**Controles para Múltiplos Itens** (marque para aplicar o mesmo valor a todos)")
         cols = st.columns(len(eventos_map))
         for i, (label, key) in enumerate(eventos_map.items()):
             with cols[i]:
                 st.checkbox(f"Mesmo Dia? ({label})", key=f'mesmo_dia_{key}_{reset_counter}')
                 st.checkbox(f"Mesmo Horário? ({label})", key=f'mesmo_horario_{key}_{reset_counter}')
+
+
 
 
     st.markdown("**Defina os horários abaixo:**")
@@ -271,7 +287,7 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
     else:
         ocorrencias_para_salvar = []
         ativo_selecionado = st.session_state.get(f'ativo_{reset_counter}')
-        ugs_selecionadas_no_form = st.session_state.get('ug_select', [])
+        ugs_selecionadas_no_form = st.session_state.get(f'ug_select_{reset_counter}', [])
         is_multi = len(iter_list) > 1
         
         erro_encontrado = False
@@ -308,11 +324,14 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                 'OS': st.session_state.get(f'os_input_{reset_counter}')
             }
             if st.session_state.get(f'categoria_selecionada_{reset_counter}') == PLANILHA_EQUIPAMENTOS:
-                ocorrencia_base['QUANTIDADE'] = st.session_state.get('quantidade', 1)
+                ocorrencia_base['QUANTIDADE'] = st.session_state.get(f'quantidade_{reset_counter}', 1)
 
             for nome_evento, key_evento in eventos_map.items():
-                data = st.session_state.get(f'data_{key_evento}_master_{reset_counter}') if (is_multi and st.session_state.get(f'mesmo_dia_{key_evento}')) or not is_multi else st.session_state.get(f'data_{key_evento}_{item_key_sanitized}_{reset_counter}')
-                hora = st.session_state.get(f'hora_{key_evento}_master_{reset_counter}') if (is_multi and st.session_state.get(f'mesmo_horario_{key_evento}')) or not is_multi else st.session_state.get(f'hora_{key_evento}_{item_key_sanitized}_{reset_counter}')
+                use_master_dia = (is_multi and st.session_state.get(f'mesmo_dia_{key_evento}_{reset_counter}')) or (not is_multi)
+                use_master_hor = (is_multi and st.session_state.get(f'mesmo_horario_{key_evento}_{reset_counter}')) or (not is_multi)
+
+                data = st.session_state.get(f'data_{key_evento}_master_{reset_counter}') if use_master_dia else st.session_state.get(f'data_{key_evento}_{item_key_sanitized}_{reset_counter}')
+                hora = st.session_state.get(f'hora_{key_evento}_master_{reset_counter}') if use_master_hor else st.session_state.get(f'hora_{key_evento}_{item_key_sanitized}_{reset_counter}')
                 
                 if data and hora:
                     ocorrencia_base[nome_evento.upper()] = datetime.combine(data, hora).strftime('%d/%m/%Y %H:%M:%S')
