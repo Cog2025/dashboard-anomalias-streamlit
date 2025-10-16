@@ -230,7 +230,7 @@ with st.container(border=True):
                 default_date = None
                 default_time = None
                 if not is_multiplos_itens or st.session_state.get(f'mesmo_dia_{key}'):
-                    cols[1].date_input(f"Data {label}", value=default_date, key=f'data_{key}_master', label_visibility="collapsed")
+                    cols[1].date_input(f"Data {label}", value=default_date, key=f'data_{key}_master', label_visibility="collapsed", format="DD/MM/YYYY")
                 if not is_multiplos_itens or st.session_state.get(f'mesmo_horario_{key}'):
                     cols[2].time_input(f"Hora {label}", value=default_time, key=f'hora_{key}_master', label_visibility="collapsed")
 
@@ -243,7 +243,7 @@ if show_specific_times:
             for label, key in eventos_map.items():
                 if not st.session_state.get(f'mesmo_dia_{key}') or not st.session_state.get(f'mesmo_horario_{key}'):
                     cols = st.columns([2, 1, 1]); cols[0].markdown(f"{label}:")
-                    if not st.session_state.get(f'mesmo_dia_{key}'): cols[1].date_input(f"Data Específica {label}", value=None, key=f'data_{key}_{item_key}', label_visibility="collapsed")
+                    if not st.session_state.get(f'mesmo_dia_{key}'): cols[1].date_input(f"Data Específica {label}", value=None, key=f'data_{key}_{item_key}', label_visibility="collapsed", format="DD/MM/YYYY")
                     if not st.session_state.get(f'mesmo_horario_{key}'): cols[2].time_input(f"Hora Específica {label}", value=None, key=f'hora_{key}_{item_key}', label_visibility="collapsed")
 
 st.markdown("---")
