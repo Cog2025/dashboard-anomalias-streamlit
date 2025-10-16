@@ -155,24 +155,17 @@ if 'last_submission_details' in st.session_state and st.session_state.last_submi
                     st.html(card_html)
     del st.session_state['last_submission_details']
 
-# Inicializar contador de reset (para forçar recriação de widgets)
-if 'form_reset_counter' not in st.session_state:
-    st.session_state.form_reset_counter = 0
-
-# Obter o contador atual
-reset_counter = st.session_state.form_reset_counter
-
 categoria_selecionada = st.selectbox(
     "Selecione a Categoria da Ocorrência", 
     options=[PLANILHA_DESLIGAMENTOS, PLANILHA_EQUIPAMENTOS], 
-    key=f'categoria_selecionada_{reset_counter}',
+    key='categoria_selecionada',
     index=None,
     placeholder="Selecione a categoria..."
 )
 st.subheader("Informações Gerais")
 col1, col2 = st.columns(2)
 with col1:
-    cliente_selecionado = st.selectbox("Cliente", options=dados_e_opcoes.get('Cliente', []), key=f'cliente_select_{reset_counter}')
+    cliente_selecionado = st.selectbox("Cliente", options=dados_e_opcoes.get('Cliente', []), key='cliente_select')
     
     op_ug = []
     if cliente_selecionado and cliente_selecionado != '-':
@@ -181,9 +174,9 @@ with col1:
         ug_filtradas = df_dados[cond_cliente & cond_ug_nao_vazia]['UG'].dropna().unique().tolist()
         op_ug = sorted(ug_filtradas)
     
-    ug_selecionada = st.multiselect("UG (Unidade Geradora)", options=op_ug, key=f'ug_select_{reset_counter}')
-    tipo_ocorrencia = st.selectbox("Tipo de Ocorrência", options=dados_e_opcoes.get('Tipo de ocorrência', []), key=f'tipo_ocorrencia_{reset_counter}')
-    ativo = st.selectbox("Ativo", options=dados_e_opcoes.get('Ativo', []), key=f'ativo_{reset_counter}')
+    ug_selecionada = st.multiselect("UG (Unidade Geradora)", options=op_ug, key='ug_select')
+    tipo_ocorrencia = st.selectbox("Tipo de Ocorrência", options=dados_e_opcoes.get('Tipo de ocorrência', []), key='tipo_ocorrencia')
+    ativo = st.selectbox("Ativo", options=dados_e_opcoes.get('Ativo', []), key='ativo')
     
     items_para_processar = []
     if ativo and ativo != '-':
@@ -194,7 +187,7 @@ with col1:
                 col_to_use = col_map.get(ativo.upper())
                 if col_to_use in df_filtrado.columns:
                     opcoes_detalhadas = sorted(list(filter(None, df_filtrado[col_to_use].dropna().unique().tolist())))
-                    nome_ativo_valor = st.multiselect("Nome Ativo", options=opcoes_detalhadas, key=f'nome_ativo_multi_{reset_counter}')
+                    nome_ativo_valor = st.multiselect("Nome Ativo", options=opcoes_detalhadas, key='nome_ativo_multi')
                     items_para_processar = nome_ativo_valor
             else: st.warning("Selecione uma UG para filtrar os ativos.")
         else:
@@ -202,16 +195,16 @@ with col1:
             items_para_processar = ug_selecionada
             
     if categoria_selecionada == PLANILHA_EQUIPAMENTOS:
-        st.number_input("Quantidade", min_value=1, step=1, key=f'quantidade_{reset_counter}', value=1)
+        st.number_input("Quantidade", min_value=1, step=1, key='quantidade', value=1)
     
     st.session_state['items_para_processar'] = items_para_processar
 
 with col2:
-    ocorrencia = st.selectbox("Ocorrência", options=dados_e_opcoes.get('Ocorrência', []), key=f'ocorrencia_{reset_counter}')
-    operador = st.selectbox("Operador", options=dados_e_opcoes.get('Operador', []), key=f'operador_{reset_counter}')
-    protocolo = st.text_input("Protocolo", placeholder="Ex: 12346", key=f'protocolo_{reset_counter}')
-    os_input = st.text_input("OS (Ordem de Serviço)", placeholder="Ex: OS12345", key=f'os_input_{reset_counter}')
-    descricao = st.text_area("Descrição Detalhada", height=135, placeholder="Descreva a ocorrência...", key=f'descricao_{reset_counter}')
+    ocorrencia = st.selectbox("Ocorrência", options=dados_e_opcoes.get('Ocorrência', []), key='ocorrencia')
+    operador = st.selectbox("Operador", options=dados_e_opcoes.get('Operador', []), key='operador')
+    protocolo = st.text_input("Protocolo", placeholder="Ex: 12346", key='protocolo')
+    os_input = st.text_input("OS (Ordem de Serviço)", placeholder="Ex: OS12345", key='os_input')
+    descricao = st.text_area("Descrição Detalhada", height=135, placeholder="Descreva a ocorrência...", key='descricao')
 
 st.markdown("---")
 st.subheader("Horários da Ocorrência")
@@ -269,7 +262,7 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
         st.error("Por favor, selecione uma ou mais UGs ou Nomes de Ativo.")
     else:
         ocorrencias_para_salvar = []
-        ativo_selecionado = st.session_state.get(f'ativo_{reset_counter}')
+        ativo_selecionado = st.session_state.ativo
         ugs_selecionadas_no_form = st.session_state.get('ug_select', [])
         is_multi = len(iter_list) > 1
         
@@ -297,16 +290,16 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
             
             ocorrencia_base = {
                 'CLIENTE': cliente_final, 'UG': ug_final, 'SIGLA': sigla_final,
-                'TIPO DE OCORRÊNCIA': st.session_state.get(f'tipo_ocorrencia_{reset_counter}'),
-                'ATIVO': st.session_state.get(f'ativo_{reset_counter}'),
+                'TIPO DE OCORRÊNCIA': st.session_state.tipo_ocorrencia,
+                'ATIVO': st.session_state.ativo,
                 'NOME ATIVO': nome_ativo_para_salvar, 
-                'OCORRÊNCIA': st.session_state.get(f'ocorrencia_{reset_counter}'),
-                'OPERADOR': st.session_state.get(f'operador_{reset_counter}'), 
-                'DESCRIÇÃO': st.session_state.get(f'descricao_{reset_counter}'),
-                'PROTOCOLO': st.session_state.get(f'protocolo_{reset_counter}'),
-                'OS': st.session_state.get(f'os_input_{reset_counter}')
+                'OCORRÊNCIA': st.session_state.ocorrencia,
+                'OPERADOR': st.session_state.operador, 
+                'DESCRIÇÃO': st.session_state.descricao,
+                'PROTOCOLO': st.session_state.protocolo,
+                'OS': st.session_state.os_input
             }
-            if st.session_state.get(f'categoria_selecionada_{reset_counter}') == PLANILHA_EQUIPAMENTOS:
+            if st.session_state.categoria_selecionada == PLANILHA_EQUIPAMENTOS:
                 ocorrencia_base['QUANTIDADE'] = st.session_state.get('quantidade', 1)
 
             for nome_evento, key_evento in eventos_map.items():
@@ -324,7 +317,7 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
             try:
                 client = connect_to_google_sheets()
                 workbook = client.open_by_url(SPREADSHEET_URL)
-                worksheet = workbook.worksheet(st.session_state.get(f'categoria_selecionada_{reset_counter}'))
+                worksheet = workbook.worksheet(st.session_state.categoria_selecionada)
                 colunas_planilha = worksheet.row_values(1)
                 
                 COLUNAS_EDITAVEIS = [
@@ -359,7 +352,7 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                     
                     # O dicionário 'ocorrencias_para_salvar' já está no formato correto.
                     for item_dict in ocorrencias_para_salvar:
-                        item_dict['Categoria'] = st.session_state.get(f'categoria_selecionada_{reset_counter}')
+                        item_dict['Categoria'] = st.session_state.categoria_selecionada
 
                     st.session_state.last_submission_details = ocorrencias_para_salvar
 
@@ -369,9 +362,6 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                     
                     for key in keys_to_delete:
                         del st.session_state[key]
-
-                    # Incrementar contador para forçar recriação de todos os widgets
-                    st.session_state.form_reset_counter += 1
 
                     st.rerun()
 
