@@ -263,6 +263,14 @@ if not df_todos_dados.empty:
         st.write("### Ano(s):")
         anos_disponiveis = sorted([a for a in df_todos_dados['Ano'].unique() if a != 0])
         with st.expander("Expandir anos"):
+            def sync_ano(ano_val):
+                if st.session_state[f'cb_ano_{ano_val}']:
+                    if ano_val not in st.session_state.filtros_anos:
+                        st.session_state.filtros_anos.append(ano_val)
+                else:
+                    if ano_val in st.session_state.filtros_anos:
+                        st.session_state.filtros_anos.remove(ano_val)
+
             col_botoes = st.columns(2)
             with col_botoes[0]:
                 if st.button('Sel. Todos', key='sel_ano', use_container_width=True):
@@ -271,9 +279,6 @@ if not df_todos_dados.empty:
             with col_botoes[1]:
                 if st.button('Desmarcar', key='des_ano', use_container_width=True):
                     st.session_state.filtros_anos = []
-                    for ano in anos_disponiveis:
-                        if f'cb_ano_{ano}' in st.session_state:
-                            del st.session_state[f'cb_ano_{ano}']
                     st.rerun()
 
             for ano in anos_disponiveis:
