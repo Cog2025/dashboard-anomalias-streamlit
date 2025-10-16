@@ -354,26 +354,23 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                     for item_dict in ocorrencias_para_salvar:
                         item_dict['Categoria'] = st.session_state.categoria_selecionada
 
-                    st.session_state.last_submission_details = ocorrencias_para_salvar
+                    # Salvar temporariamente antes de limpar
+                    temp_save = ocorrencias_para_salvar.copy()
 
-                    # Limpar TODOS os campos do formulário (exceto last_submission_details)
-                    keys_to_preserve = {'last_submission_details'}
-                    
-                    # Criar cópia da lista de keys para evitar problemas durante iteração
+                    # Limpar TUDO do session_state primeiro
                     all_keys = list(st.session_state.keys())
-                    
                     for key in all_keys:
-                        if key not in keys_to_preserve:
-                            try:
-                                del st.session_state[key]
-                            except:
-                                pass
-                    
-                    # Forçar rerun completo
-                    import time
-                    st.query_params.clear()
-                    time.sleep(0.1)
+                        try:
+                            del st.session_state[key]
+                        except:
+                            pass
+
+                    # Agora salvar last_submission_details no session_state LIMPO
+                    st.session_state.last_submission_details = temp_save
+
                     st.rerun()
+
+
 
 
 
