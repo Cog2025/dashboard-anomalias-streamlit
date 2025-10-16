@@ -369,7 +369,12 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                             except:
                                 pass
                     
+                    # Forçar rerun completo
+                    import time
+                    st.query_params.clear()
+                    time.sleep(0.1)
                     st.rerun()
+
 
 
             except Exception as e:
