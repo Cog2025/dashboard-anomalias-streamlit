@@ -356,37 +356,12 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
 
                     st.session_state.last_submission_details = ocorrencias_para_salvar
 
-                    # Limpar todos os campos do formulário
-                    keys_to_delete = [
-                        'categoria_selecionada', 'cliente_select', 'ug_select',
-                        'tipo_ocorrencia', 'ativo', 'nome_ativo_multi', 'quantidade',
-                        'ocorrencia', 'operador', 'protocolo', 'os_input', 'descricao',
-                        'items_para_processar'
-                    ]
+                    # Limpar TODOS os campos do formulário (exceto last_submission_details)
+                    keys_to_preserve = {'last_submission_details'}
+                    keys_to_delete = [k for k in list(st.session_state.keys()) if k not in keys_to_preserve]
                     
-                    # Limpar checkboxes e campos de data/hora
-                    eventos = ['desligamento', 'ca', 'al', 'at', 'norm']
-                    for evento in eventos:
-                        keys_to_delete.extend([
-                            f'mesmo_dia_{evento}',
-                            f'mesmo_horario_{evento}',
-                            f'data_{evento}_master',
-                            f'hora_{evento}_master'
-                        ])
-                    
-                    # Limpar campos específicos de itens (dinâmicos)
-                    keys_to_remove = [k for k in st.session_state.keys() if any(
-                        f'_data_{evento}_' in k or f'_hora_{evento}_' in k 
-                        for evento in eventos
-                    )]
-                    keys_to_delete.extend(keys_to_remove)
-                    
-                    # Executar a limpeza
                     for key in keys_to_delete:
-                        if key in st.session_state:
-                            del st.session_state[key]
-
-
+                        del st.session_state[key]
 
                     st.rerun()
 
