@@ -227,8 +227,8 @@ with st.container(border=True):
             with st.container():
                 cols = st.columns([2, 1, 1])
                 cols[0].markdown(f"**{label}**")
-                default_date = datetime.now().date() if label == 'Desligamento' else None
-                default_time = datetime.now().time() if label == 'Desligamento' else None
+                default_date = None
+                default_time = None
                 if not is_multiplos_itens or st.session_state.get(f'mesmo_dia_{key}'):
                     cols[1].date_input(f"Data {label}", value=default_date, key=f'data_{key}_master', label_visibility="collapsed")
                 if not is_multiplos_itens or st.session_state.get(f'mesmo_horario_{key}'):
@@ -307,7 +307,7 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                 hora = st.session_state.get(f'hora_{key_evento}_master') if (is_multi and st.session_state.get(f'mesmo_horario_{key_evento}')) or not is_multi else st.session_state.get(f'hora_{key_evento}_{item_key_sanitized}')
                 
                 if data and hora:
-                    ocorrencia_base[nome_evento.upper()] = datetime.combine(data, hora).strftime('%Y-%m-%d %H:%M:%S')
+                    ocorrencia_base[nome_evento.upper()] = datetime.combine(data, hora).strftime('%d/%m/%Y %H:%M:%S')
                 else:
                     ocorrencia_base[nome_evento.upper()] = ''
             
