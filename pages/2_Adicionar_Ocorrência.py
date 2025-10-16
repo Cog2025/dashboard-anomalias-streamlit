@@ -227,8 +227,8 @@ with st.container(border=True):
             with st.container():
                 cols = st.columns([2, 1, 1])
                 cols[0].markdown(f"**{label}**")
-                default_date = datetime.now().date() if label == 'Desligamento' else None
-                default_time = datetime.now().time() if label == 'Desligamento' else None
+                default_date = None
+                default_time = None
                 if not is_multiplos_itens or st.session_state.get(f'mesmo_dia_{key}'):
                     cols[1].date_input(f"Data {label}", value=default_date, key=f'data_{key}_master', label_visibility="collapsed")
                 if not is_multiplos_itens or st.session_state.get(f'mesmo_horario_{key}'):
