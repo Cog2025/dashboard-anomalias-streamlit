@@ -225,33 +225,34 @@ with st.container(border=True):
         cols = st.columns(len(eventos_map))
         for i, (label, key) in enumerate(eventos_map.items()):
             with cols[i]:
-                st.checkbox(f"Mesmo Dia? ({label})", key=f'mesmo_dia_{key}')
-                st.checkbox(f"Mesmo Horário? ({label})", key=f'mesmo_horario_{key}')
+                st.checkbox(f"Mesmo Dia? ({label})", key=f'mesmo_dia_{key}_{reset_counter}')
+                st.checkbox(f"Mesmo Horário? ({label})", key=f'mesmo_horario_{key}_{reset_counter}')
+
 
     st.markdown("**Defina os horários abaixo:**")
     for label, key in eventos_map.items():
-        if not is_multiplos_itens or st.session_state.get(f'mesmo_dia_{key}') or st.session_state.get(f'mesmo_horario_{key}'):
+        if not is_multiplos_itens or st.session_state.get(f'mesmo_dia_{key}_{reset_counter}') or st.session_state.get(f'mesmo_horario_{key}_{reset_counter}'):
             with st.container():
                 cols = st.columns([2, 1, 1])
                 cols[0].markdown(f"**{label}**")
                 default_date = None
                 default_time = None
-                if not is_multiplos_itens or st.session_state.get(f'mesmo_dia_{key}'):
-                    cols[1].date_input(f"Data {label}", value=default_date, key=f'data_{key}_master', label_visibility="collapsed", format="DD/MM/YYYY")
-                if not is_multiplos_itens or st.session_state.get(f'mesmo_horario_{key}'):
-                    cols[2].time_input(f"Hora {label}", value=default_time, key=f'hora_{key}_master', label_visibility="collapsed")
+                if not is_multiplos_itens or st.session_state.get(f'mesmo_dia_{key}_{reset_counter}'):
+                    cols[1].date_input(f"Data {label}", value=default_date, key=f'data_{key}_master_{reset_counter}', label_visibility="collapsed", format="DD/MM/YYYY")
+                if not is_multiplos_itens or st.session_state.get(f'mesmo_horario_{key}_{reset_counter}'):
+                    cols[2].time_input(f"Hora {label}", value=default_time, key=f'hora_{key}_master_{reset_counter}', label_visibility="collapsed")
 
-show_specific_times = is_multiplos_itens and any(not st.session_state.get(f'mesmo_dia_{key}') or not st.session_state.get(f'mesmo_horario_{key}') for key in eventos_map.values())
+show_specific_times = is_multiplos_itens and any(not st.session_state.get(f'mesmo_dia_{key}_{reset_counter}') or not st.session_state.get(f'mesmo_horario_{key}_{reset_counter}') for key in eventos_map.values())
 
 if show_specific_times:
     with st.expander("**Preencher Datas/Horários Específicos**", expanded=True):
         for item in items_para_processar:
             st.markdown(f"--- \n **{item}**"); item_key = sanitize_key(item)
             for label, key in eventos_map.items():
-                if not st.session_state.get(f'mesmo_dia_{key}') or not st.session_state.get(f'mesmo_horario_{key}'):
+                if not st.session_state.get(f'mesmo_dia_{key}_{reset_counter}') or not st.session_state.get(f'mesmo_horario_{key}_{reset_counter}'):
                     cols = st.columns([2, 1, 1]); cols[0].markdown(f"{label}:")
-                    if not st.session_state.get(f'mesmo_dia_{key}'): cols[1].date_input(f"Data Específica {label}", value=None, key=f'data_{key}_{item_key}', label_visibility="collapsed", format="DD/MM/YYYY")
-                    if not st.session_state.get(f'mesmo_horario_{key}'): cols[2].time_input(f"Hora Específica {label}", value=None, key=f'hora_{key}_{item_key}', label_visibility="collapsed")
+                    if not st.session_state.get(f'mesmo_dia_{key}_{reset_counter}'): cols[1].date_input(f"Data Específica {label}", value=None, key=f'data_{key}_{item_key}_{reset_counter}', label_visibility="collapsed", format="DD/MM/YYYY")
+                    if not st.session_state.get(f'mesmo_horario_{key}_{reset_counter}'): cols[2].time_input(f"Hora Específica {label}", value=None, key=f'hora_{key}_{item_key}_{reset_counter}', label_visibility="collapsed")
 
 st.markdown("---")
 if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
@@ -310,8 +311,8 @@ if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
                 ocorrencia_base['QUANTIDADE'] = st.session_state.get('quantidade', 1)
 
             for nome_evento, key_evento in eventos_map.items():
-                data = st.session_state.get(f'data_{key_evento}_master') if (is_multi and st.session_state.get(f'mesmo_dia_{key_evento}')) or not is_multi else st.session_state.get(f'data_{key_evento}_{item_key_sanitized}')
-                hora = st.session_state.get(f'hora_{key_evento}_master') if (is_multi and st.session_state.get(f'mesmo_horario_{key_evento}')) or not is_multi else st.session_state.get(f'hora_{key_evento}_{item_key_sanitized}')
+                data = st.session_state.get(f'data_{key_evento}_master_{reset_counter}') if (is_multi and st.session_state.get(f'mesmo_dia_{key_evento}')) or not is_multi else st.session_state.get(f'data_{key_evento}_{item_key_sanitized}_{reset_counter}')
+                hora = st.session_state.get(f'hora_{key_evento}_master_{reset_counter}') if (is_multi and st.session_state.get(f'mesmo_horario_{key_evento}')) or not is_multi else st.session_state.get(f'hora_{key_evento}_{item_key_sanitized}_{reset_counter}')
                 
                 if data and hora:
                     ocorrencia_base[nome_evento.upper()] = datetime.combine(data, hora).strftime('%d/%m/%Y %H:%M:%S')
