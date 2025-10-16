@@ -9,8 +9,10 @@ import gspread
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import get_as_dataframe
 
+
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
+
 
 # --- 2. Dicionário para tradução dos meses ---
 meses_traducao = {
@@ -20,6 +22,7 @@ meses_traducao = {
     'October': 'Outubro', 'November': 'Novembro', 'December': 'Dezembro'
 }
 meses_cronologicos = list(meses_traducao.values())
+
 
 # --- 3. CSS ---
 st.markdown("""
@@ -73,7 +76,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
 # --- 4. Carregar e Tratar os Dados ---
+
 
 # Define os "escopos" - as permissões que nosso script solicitará.
 SCOPES = [
@@ -81,10 +86,12 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
+
 # Nome das planilhas que vamos ler
 CREDS_FILE = "google_credentials.json"
 PLANILHA_NOME_1 = "DESLIGAMENTOS"
 PLANILHA_NOME_2 = "EQUIPAMENTOS"
+
 
 @st.cache_resource(ttl=600)
 def connect_to_google_sheets():
@@ -97,6 +104,7 @@ def connect_to_google_sheets():
     client = gspread.authorize(creds)
     return client
 
+
 def fetch_sheet_as_df(worksheet):
     data = worksheet.get_all_values()
     if not data:
@@ -106,6 +114,7 @@ def fetch_sheet_as_df(worksheet):
     df = pd.DataFrame(data, columns=headers)
     return df
 
+
 @st.cache_data(ttl=600)
 def carregar_dados_google_sheets():
     try:
@@ -113,13 +122,16 @@ def carregar_dados_google_sheets():
         spreadsheet_url = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
         workbook = client.open_by_url(spreadsheet_url)
 
+
         df_desligamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_1))
         df_equipamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_2))
+
 
         if 'IDENTIFICADOR' in df_desligamentos.columns:
             df_desligamentos['IDENTIFICADOR'] = df_desligamentos['IDENTIFICADOR'].astype(str)
         if 'IDENTIFICADOR' in df_equipamentos.columns:
             df_equipamentos['IDENTIFICADOR'] = df_equipamentos['IDENTIFICADOR'].astype(str)
+
 
         df_desligamentos.dropna(how='all', inplace=True)
         df_equipamentos.dropna(how='all', inplace=True)
@@ -127,6 +139,7 @@ def carregar_dados_google_sheets():
         df_desligamentos['Categoria'] = 'DESLIGAMENTOS'
         df_equipamentos['Categoria']  = 'EQUIPAMENTOS'
         df_todos_dados = pd.concat([df_desligamentos, df_equipamentos], ignore_index=True)
+
 
         mapa_renomear = {
             'IDENTIFICADOR': 'Identificador', 'CLIENTE': 'Cliente', 'UG': 'UG', 'TIPO DE OCORRÊNCIA': 'Tipo de ocorrência',
@@ -144,7 +157,9 @@ def carregar_dados_google_sheets():
                 renomear_final[col] = mapa_renomear[col_strip_upper]
         df_todos_dados.rename(columns=renomear_final, inplace=True)
 
+
         df_todos_dados.fillna('', inplace=True)
+
 
         # Garante que a coluna 'Cliente' existe antes de filtrar
         if 'Cliente' in df_todos_dados.columns:
@@ -159,10 +174,12 @@ def carregar_dados_google_sheets():
             if col in df_todos_dados.columns:
                 df_todos_dados[col] = pd.to_datetime(df_todos_dados[col], errors='coerce')
 
+
         colunas_texto = ['Operador', 'Descrição', 'OS', 'Protocolo']
         for col in colunas_texto:
             if col in df_todos_dados.columns:
                  df_todos_dados[col] = df_todos_dados[col].astype(str).fillna('')
+
 
         # Verifica se a coluna 'Desligamento' existe e não está vazia antes de processar
         if 'Desligamento' in df_todos_dados.columns and not df_todos_dados['Desligamento'].isnull().all():
@@ -171,6 +188,7 @@ def carregar_dados_google_sheets():
             df_todos_dados['Mês']  = df_todos_dados['Desligamento'].dt.strftime('%B').map(meses_traducao)
             df_todos_dados['Ano']  = df_todos_dados['Desligamento'].dt.year.fillna(0).astype(int)
             df_todos_dados['Dia']  = df_todos_dados['Desligamento'].dt.day.fillna(0).astype(int)
+
 
             df_todos_dados['ID_Unico'] = df_todos_dados['UG'].astype(str).str.upper() + "|" + \
                                     df_todos_dados['Ativo'].astype(str).str.upper() + "|" + \
@@ -182,7 +200,9 @@ def carregar_dados_google_sheets():
                 df_todos_dados[col] = None
 
 
+
         return df_todos_dados
+
 
     except FileNotFoundError:
         st.error(f"Erro: O arquivo de credenciais '{CREDS_FILE}' não foi encontrado. Verifique se ele está na mesma pasta do seu script principal (app.py).")
@@ -196,11 +216,14 @@ def carregar_dados_google_sheets():
 
 
 
+
 df_todos_dados = carregar_dados_google_sheets()
+
 
 
 # Garante que a coluna de data/hora está no formato correto
 df_todos_dados['Desligamento'] = pd.to_datetime(df_todos_dados['Desligamento'], errors='coerce')
+
 
 
 # --- 5. Inicialização dos Filtros ---
@@ -231,6 +254,7 @@ if 'filtros_ativos' not in st.session_state:
 if 'filtros_ocorrencias' not in st.session_state:
     st.session_state.filtros_ocorrencias = sorted(df_todos_dados['Ocorrência'].unique().tolist()) if not df_todos_dados.empty else []
 
+
 # --- 6. Título e KPIs ---
 st.title('Usinas desligadas no momento')
 col_kpi1, col_kpi2 = st.columns(2)
@@ -247,6 +271,7 @@ with col_kpi1:
     </div>
     """, unsafe_allow_html=True)
 
+
 # --- 7. Botão de Atualização ---
 col_top_left, col_top_right = st.columns([0.2, 0.8])
 with col_top_left:
@@ -254,11 +279,23 @@ with col_top_left:
         st.cache_data.clear()
         st.rerun()
 
+
 # --- 8. Interface de Filtros ---
+# Utilitário: marca/desmarca e mantém consistência entre filtros e checkboxes
+def _marcar(prefixo_key: str, itens: list, filtro_key: str, marcar_todos: bool, validos: set | None = None):
+    validos = set(itens) if validos is None else set(validos)
+    # Atualiza lista
+    st.session_state[filtro_key] = [x for x in itens if (x in validos) and marcar_todos]
+    # Atualiza checkboxes correspondentes
+    for x in itens:
+        st.session_state[f"{prefixo_key}{x}"] = marcar_todos and (x in validos)
+
+
 if not df_todos_dados.empty:
     st.subheader("Selecione o período desejado")
     col_ano, col_mes, col_dia = st.columns(3)
     
+    # --- Ano(s) ---
     with col_ano:
         st.write("### Ano(s):")
         anos_disponiveis = sorted([a for a in df_todos_dados['Ano'].unique() if a != 0])
@@ -266,15 +303,18 @@ if not df_todos_dados.empty:
             for ano in anos_disponiveis:
                 st.checkbox(str(ano), key=f'cb_ano_{ano}', value=(ano in st.session_state.filtros_anos))
         col_botoes = st.columns(2)
-        with col_botoes[0]:
-            if st.button('Sel. Todos', key='sel_ano', use_container_width=True):
-                st.session_state.filtros_anos = anos_disponiveis
-                st.rerun()
-        with col_botoes[1]:
-            if st.button('Desmarcar', key='des_ano', use_container_width=True):
-                st.session_state.filtros_anos = []
-                st.rerun()
+        clicked_sel_ano = col_botoes[0].button(
+            'Sel. Todos', key='sel_ano', use_container_width=True,
+            on_click=_marcar, args=('cb_ano_', anos_disponiveis, 'filtros_anos', True)
+        )
+        clicked_des_ano = col_botoes[1].button(
+            'Desmarcar', key='des_ano', use_container_width=True,
+            on_click=_marcar, args=('cb_ano_', anos_disponiveis, 'filtros_anos', False)
+        )
+        if not (clicked_sel_ano or clicked_des_ano):
+            st.session_state.filtros_anos = [a for a in anos_disponiveis if st.session_state.get(f'cb_ano_{a}', False)]
 
+    # --- Mês(es) ---
     with col_mes:
         st.write("### Mês(es):")
         meses_disponiveis = meses_cronologicos
@@ -282,24 +322,32 @@ if not df_todos_dados.empty:
             for mes in meses_disponiveis:
                 st.checkbox(mes, key=f'cb_mes_{mes}', value=(mes in st.session_state.filtros_meses))
         col_botoes = st.columns(2)
-        with col_botoes[0]:
-            if st.button('Sel. Todos', key='sel_mes', use_container_width=True):
-                st.session_state.filtros_meses = meses_disponiveis
-                st.rerun()
-        with col_botoes[1]:
-            if st.button('Desmarcar', key='des_mes', use_container_width=True):
-                st.session_state.filtros_meses = []
-                st.rerun()
+        clicked_sel_mes = col_botoes[0].button(
+            'Sel. Todos', key='sel_mes', use_container_width=True,
+            on_click=_marcar, args=('cb_mes_', meses_disponiveis, 'filtros_meses', True)
+        )
+        clicked_des_mes = col_botoes[1].button(
+            'Desmarcar', key='des_mes', use_container_width=True,
+            on_click=_marcar, args=('cb_mes_', meses_disponiveis, 'filtros_meses', False)
+        )
+        if not (clicked_sel_mes or clicked_des_mes):
+            st.session_state.filtros_meses = [m for m in meses_disponiveis if st.session_state.get(f'cb_mes_{m}', False)]
 
+    # --- Dia(s) ---
     with col_dia:
         st.write("### Dia(s):")
-        meses_selecionados_input = [mes for mes in meses_cronologicos if st.session_state.get(f'cb_mes_{mes}')]
-        anos_selecionados_input = [ano for ano in anos_disponiveis if st.session_state.get(f'cb_ano_{ano}')]
+        meses_selecionados_input = [mes for mes in meses_cronologicos if st.session_state.get(f'cb_mes_{mes}', False)]
+        anos_selecionados_input = [ano for ano in anos_disponiveis if st.session_state.get(f'cb_ano_{ano}', False)]
         dias_disponiveis_temp = df_todos_dados[
             df_todos_dados['Mês'].isin(meses_selecionados_input) & 
             df_todos_dados['Ano'].isin(anos_selecionados_input)
         ]['Dia'].unique().tolist()
         dias_disponiveis = sorted([d for d in dias_disponiveis_temp if d != 0])
+
+        # Zera qualquer dia que ficou inválido após mudança de mês/ano
+        for d in range(1, 32):
+            if d not in dias_disponiveis:
+                st.session_state[f'cb_dia_{d}'] = False
         
         with st.expander("Expandir dias"):
             dias_cols = st.columns(7)
@@ -310,14 +358,17 @@ if not df_todos_dados.empty:
                     else:
                         st.checkbox(str(dia), key=f'cb_dia_{dia}', disabled=True)
         col_botoes = st.columns(2)
-        with col_botoes[0]:
-            if st.button('Sel. Todos', key='sel_dia', use_container_width=True):
-                st.session_state.filtros_dias = dias_disponiveis
-                st.rerun()
-        with col_botoes[1]:
-            if st.button('Desmarcar', key='des_dia', use_container_width=True):
-                st.session_state.filtros_dias = []
-                st.rerun()
+        clicked_sel_dia = col_botoes[0].button(
+            'Sel. Todos', key='sel_dia', use_container_width=True,
+            on_click=_marcar, args=('cb_dia_', list(range(1, 32)), 'filtros_dias', True, set(dias_disponiveis))
+        )
+        clicked_des_dia = col_botoes[1].button(
+            'Desmarcar', key='des_dia', use_container_width=True,
+            on_click=_marcar, args=('cb_dia_', list(range(1, 32)), 'filtros_dias', False, set(dias_disponiveis))
+        )
+        if not (clicked_sel_dia or clicked_des_dia):
+            st.session_state.filtros_dias = [d for d in dias_disponiveis if st.session_state.get(f'cb_dia_{d}', False)]
+
 
     st.subheader("Filtros Adicionais")
     col_cliente, col_ug, col_tipo, col_ativo, col_ocorrencia = st.columns(5)
@@ -337,15 +388,18 @@ if not df_todos_dados.empty:
             ' ', options=sorted(df_todos_dados['Cliente'].unique().tolist()),
             default=st.session_state.filtros_clientes, label_visibility='hidden')
 
+
     with col_ug:
         st.write("UG:")
         df_temp = df_todos_dados[df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)]
         ugs_disponiveis = sorted(df_temp['UG'].unique().tolist())
 
+
         # --- LINHA ADICIONADA PARA A CORREÇÃO ---
         # Garante que apenas UGs válidas permaneçam selecionadas após a mudança do filtro de cliente.
         st.session_state.filtros_ugs = [ug for ug in st.session_state.filtros_ugs if ug in ugs_disponiveis]
         # -----------------------------------------
+
 
         col_botoes = st.columns(2)
         with col_botoes[0]:
@@ -358,6 +412,7 @@ if not df_todos_dados.empty:
                 st.rerun()
         st.session_state.filtros_ugs = st.multiselect(
             ' ', options=ugs_disponiveis, default=st.session_state.filtros_ugs, label_visibility='hidden')
+
 
     with col_tipo:
         st.write("Tipo de Ocorrência:")
@@ -373,6 +428,7 @@ if not df_todos_dados.empty:
         st.session_state.filtros_tipos = st.multiselect(
             ' ', options=sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist()),
             default=st.session_state.filtros_tipos, label_visibility='hidden')
+
 
     with col_ativo:
         st.write("Ativo:")
@@ -404,10 +460,11 @@ if not df_todos_dados.empty:
             ' ', options=sorted(df_todos_dados['Ocorrência'].unique().tolist()),
             default=st.session_state.filtros_ocorrencias, label_visibility='hidden')
 
+
     # --- Aplicação dos Filtros ---
     meses_selecionados = [mes for mes in meses_cronologicos if st.session_state.get(f'cb_mes_{mes}')]
     anos_selecionados = [ano for ano in anos_disponiveis if st.session_state.get(f'cb_ano_{ano}')]
-    dias_selecionados = [dia for dia in dias_disponiveis if st.session_state.get(f'cb_dia_{dia}')]
+    dias_selecionados = [dia for dia in range(1, 32) if st.session_state.get(f'cb_dia_{dia}')]
 
     df_filtrado = df_todos_dados[
         (df_todos_dados['Mês'].isin(meses_selecionados)) &
@@ -434,6 +491,7 @@ if not df_todos_dados.empty:
     if not df_desligadas.empty:
         df_desligadas['Tempo em Segundos'] = (datetime.now() - df_desligadas['Desligamento']).dt.total_seconds().astype(int)
 
+
         # --- CONTROLES DE ORDENAÇÃO ---
         st.markdown("---")
         st.write("### Ordenar e Editar")
@@ -451,17 +509,21 @@ if not df_todos_dados.empty:
                 options=sort_options_display.keys(), index=0)
             sort_by_column = sort_options_display[sort_by_display]
 
+
         with sort_cols[1]:
             sort_order = st.radio(
                 "Ordem:",
                 options=['Descendente', 'Ascendente'], index=0, horizontal=True)
             is_ascending = (sort_order == 'Ascendente')
 
+
         df_sorted = df_desligadas.sort_values(by=sort_by_column, ascending=is_ascending)
+
 
         # ***** NOVO: SELEÇÃO PARA EDIÇÃO *****
         st.markdown("---")
         st.write("### Editar uma Ocorrência")
+
 
         # Criamos uma coluna 'Display' para facilitar a seleção no selectbox
         df_sorted['Display'] = df_sorted['UG'].astype(str) + " | " + \
@@ -470,12 +532,14 @@ if not df_todos_dados.empty:
                                df_sorted['Ocorrência'].astype(str) + " | " + \
                                df_sorted['Desligamento'].dt.strftime('%d/%m/%Y %H:%M')
 
+
         ocorrencia_selecionada_display = st.selectbox(
             "Selecione a ocorrência para editar:",
             options=df_sorted['Display'],
             index=None, # Nenhum selecionado por padrão
             placeholder="Escolha uma ocorrência..."
         )
+
 
         if ocorrencia_selecionada_display:
             # AQUI, passamos a pegar o valor da nova coluna 'ID_Unico'
@@ -506,6 +570,7 @@ if not df_todos_dados.empty:
             'Ativo', 'Ocorrência', 'Operador', 'Descrição', 'OS'
         ]], use_container_width=True)
 
+
         # --- DETALHES POR OCORRÊNCIA (CARDS) ---
         st.header("Detalhes por Ocorrência (Cards)")
         
@@ -516,6 +581,7 @@ if not df_todos_dados.empty:
             if pd.notna(dt_obj):
                 return dt_obj.strftime('%d/%m/%Y'), dt_obj.strftime('%H:%M')
             return '', ''
+
 
         for i in range(0, len(rows), num_cols):
             cols = st.columns(num_cols)
@@ -534,11 +600,13 @@ if not df_todos_dados.empty:
                         protocolo = html.escape(str(row.get("Protocolo", "")))
                         os = html.escape(str(row.get("OS", "")))
 
+
                         data_ocor, hora_ocor = format_datetime_card(row.get('Desligamento'))
                         data_ca, hora_ca = format_datetime_card(row.get('Cliente Avisado'))
                         data_loop, hora_loop = format_datetime_card(row.get('Atendimento Loop'))
                         data_terc, hora_terc = format_datetime_card(row.get('Atendimento Terceiros'))
                         data_norm, hora_norm = format_datetime_card(row.get('Normalização'))
+
 
                         quantidade_html = ''
                         if row.get('Categoria') == 'EQUIPAMENTOS':
@@ -548,6 +616,7 @@ if not df_todos_dados.empty:
                                     quantidade_html = f'<div class="card-item"><span class="card-label">Quantidade:</span> {int(float(quantidade_val))}</div>'
                             except (ValueError, TypeError):
                                 quantidade_html = ''
+
 
                         card_html = f"""
                         <div class="card-container">
