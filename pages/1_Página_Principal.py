@@ -271,23 +271,24 @@ if not df_todos_dados.empty:
                     if ano_val in st.session_state.filtros_anos:
                         st.session_state.filtros_anos.remove(ano_val)
 
-            col_botoes = st.columns(2)
-            with col_botoes[0]:
-                if st.button('Sel. Todos', key='sel_ano', use_container_width=True):
-                    st.session_state.filtros_anos = anos_disponiveis.copy()
-                    st.rerun()
-            with col_botoes[1]:
-                if st.button('Desmarcar', key='des_ano', use_container_width=True):
-                    st.session_state.filtros_anos = []
-                    st.rerun()
-
             for ano in anos_disponiveis:
-                checked = st.checkbox(str(ano), key=f'cb_ano_{ano}', value=ano in st.session_state.filtros_anos)
-                if checked and ano not in st.session_state.filtros_anos:
-                    st.session_state.filtros_anos.append(ano)
-                elif not checked and ano in st.session_state.filtros_anos:
-                    st.session_state.filtros_anos.remove(ano)
+                st.checkbox(str(ano), key=f'cb_ano_{ano}', value=ano in st.session_state.filtros_anos)
 
+            # Sincronizar checkboxes com filtros_anos
+            anos_checkboxes_selecionados = [ano for ano in anos_disponiveis if st.session_state.get(f'cb_ano_{ano}', False)]
+            st.session_state.filtros_anos = anos_checkboxes_selecionados
+
+
+
+        col_botoes = st.columns(2)
+        with col_botoes[0]:
+            if st.button('Sel. Todos', key='sel_ano', use_container_width=True):
+                st.session_state.filtros_anos = anos_disponiveis
+                st.rerun()
+        with col_botoes[1]:
+            if st.button('Desmarcar', key='des_ano', use_container_width=True):
+                st.session_state.filtros_anos = []
+                st.rerun()
 
     with col_mes:
         st.write("### Mês(es):")
