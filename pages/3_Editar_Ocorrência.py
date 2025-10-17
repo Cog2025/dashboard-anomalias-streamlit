@@ -115,9 +115,30 @@ def split_datetime(dt_obj):
     return None, None
 
 # --- LÓGICA DA PÁGINA ---
-if 'id_unico_para_editar' not in st.session_state or not st.session_state['id_unico_para_editar']:
-    st.warning("Nenhuma ocorrência selecionada para edição.")
-    st.page_link("pages/1_Página_Principal.py", label="Voltar para a Página Principal", icon="🏠")
+# --- INÍCIO: escolha automática pela lista filtrada da página principal ---
+if ('id_unico_para_editar' not in st.session_state or not st.session_state['id_unico_para_editar']):
+    df_lista = st.session_state.get('df_lista_para_editar')
+
+    if df_lista is not None and not df_lista.empty:
+        st.subheader("Lista de Ocorrências (da página principal)")
+        st.dataframe(df_lista.drop(columns=[c for c in ['ID_Unico'] if c in df_lista.columns]), use_container_width=True)
+
+        occ_disp = st.selectbox(
+            "Selecione a ocorrência para editar:",
+            options=df_lista['Display'] if 'Display' in df_lista.columns else [],
+            index=None,
+            placeholder="Escolha uma ocorrência..."
+        )
+        if occ_disp:
+            sel = df_lista[df_lista['Display'] == occ_disp].iloc[0]
+            st.session_state['id_unico_para_editar'] = sel['ID_Unico']
+            st.rerun()
+    else:
+        st.warning("Nenhuma ocorrência selecionada para edição.")
+        st.page_link("pages/1_Página_Principal.py", label="Voltar para a Página Principal", icon="🏠")
+        st.stop()
+# --- FIM: mantém o restante do fluxo igual ---
+
 else:
     id_para_editar = st.session_state['id_unico_para_editar']
     df_completo = carregar_dados_completos()

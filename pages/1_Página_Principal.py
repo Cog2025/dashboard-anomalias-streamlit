@@ -234,6 +234,38 @@ df_todos_dados = carregar_dados_google_sheets(st.session_state.cache_buster)
 # Garante que a coluna de data/hora está no formato correto
 df_todos_dados['Desligamento'] = pd.to_datetime(df_todos_dados['Desligamento'], errors='coerce')
 
+# --- Cards gerais por categoria (fixos, sem filtros) ---
+col_top1, col_top2 = st.columns(2)
+
+count_deslig = df_todos_dados[
+    (df_todos_dados['Categoria'] == 'DESLIGAMENTOS') &
+    (pd.isna(df_todos_dados['Normalização']) | (df_todos_dados['Normalização'] == ''))
+].shape[0]
+
+count_equip = df_todos_dados[
+    (df_todos_dados['Categoria'] == 'EQUIPAMENTOS') &
+    (pd.isna(df_todos_dados['Normalização']) | (df_todos_dados['Normalização'] == ''))
+].shape[0]
+
+with col_top1:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">USINAS DESLIGADAS NO MOMENTO</div>
+        <div class="kpi-value">{count_deslig}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_top2:
+    st.markdown(f"""
+    <div class="kpi-card">
+        <div class="kpi-label">EQUIPAMENTOS PARADOS NO MOMENTO</div>
+        <div class="kpi-value">{count_equip}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Título renomeado
+st.title('Ocorrências ativas')
+
 
 
 # --- 5. Inicialização dos Filtros ---
@@ -303,6 +335,16 @@ def _marcar(prefixo_key: str, itens: list, filtro_key: str, marcar_todos: bool, 
 
 
 if not df_todos_dados.empty:
+    st.markdown("#### Filtrar por categoria (planilha)")
+    cat_opt = st.radio(
+        "Categoria:",
+        options=["Ambas", "DESLIGAMENTOS", "EQUIPAMENTOS"],
+        index=0,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="categoria_top"
+    )
+
     st.subheader("Selecione o período desejado")
     # imediatamente após st.subheader("Selecione o período desejado")
     anos_disponiveis = sorted([a for a in df_todos_dados['Ano'].unique() if a != 0])
@@ -465,6 +507,10 @@ if not df_todos_dados.empty:
     m_dia = s_dia.isin(dias_selecionados)  if not all_dias  else (s_dia.isin(dias_selecionados)  | s_dia.isna() | (s_dia == 0))
 
     m_cat = df_todos_dados['Categoria'].isin(st.session_state.filtros_categorias)
+    # Respeita seletor de categoria do topo
+    if st.session_state.get("categoria_top") in ("DESLIGAMENTOS", "EQUIPAMENTOS"):
+        m_cat = m_cat & (df_todos_dados['Categoria'] == st.session_state["categoria_top"])
+
     m_cli = df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)
     m_ug  = df_todos_dados['UG'].isin(st.session_state.filtros_ugs)
     m_tip = df_todos_dados['Tipo de ocorrência'].isin(st.session_state.filtros_tipos)
@@ -517,6 +563,13 @@ if not df_todos_dados.empty:
 
 
         df_sorted = df_desligadas.sort_values(by=sort_by_column, ascending=is_ascending, na_position='last')
+        # Disponibiliza lista filtrada/ordenada para a página de edição
+        cols_minimos = ['ID_Unico', 'UG', 'Ativo', 'Nome Ativo', 'Ocorrência', 'Desligamento', 'Categoria', 
+                        'Tipo de ocorrência', 'Operador', 'Descrição', 'OS', 'Protocolo', 
+                        'Normalização', 'Atendimento Loop', 'Atendimento Terceiros', 'Cliente Avisado']
+        cols_salvar = [c for c in cols_minimos if c in df_sorted.columns] + (['Display'] if 'Display' in df_sorted.columns else [])
+        st.session_state['df_lista_para_editar'] = df_sorted[cols_salvar].copy()
+
 
 
         # ***** NOVO: SELEÇÃO PARA EDIÇÃO *****
