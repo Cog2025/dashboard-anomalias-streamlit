@@ -76,21 +76,20 @@ st.markdown("""
     }
 
     /* Retângulo do bloco superior (OCORRÊNCIAS ATIVAS) */
-    div:has(> #top-anchor) {
+    .top-block {
     border: 2px solid rgba(255,255,255,0.15);
     border-radius: 12px;
     padding: 16px 16px 8px 16px;
     margin-bottom: 28px;
-    background: #111418;              /* opcional: cor do retângulo */
+    background: #111418;
     box-shadow: 0 8px 18px rgba(0,0,0,0.25);
     }
-
-    /* Responsivo (opcional) */
+    .top-block h1 { margin-top: 0; }
     @media (max-width: 768px) {
-    div:has(> #top-anchor) { padding: 12px; }
+    .top-block { padding: 12px; }
     }
-</style>
-""", unsafe_allow_html=True)
+    </style>
+    """, unsafe_allow_html=True)
 
 # Pequeno ajuste opcional para padding/borda dos quadros
 st.markdown("""
@@ -263,15 +262,11 @@ count_equip = df_todos_dados[
 # --- Cards gerais por categoria (fixos, sem filtros) ---
 # --- Seção destacada: OCORRÊNCIAS ATIVAS ---
 with st.container():
-    # Anchor para aplicar o CSS do retângulo neste container
-    st.markdown('<div id="top-anchor"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="top-block">', unsafe_allow_html=True)  # abre wrapper
 
-    # Título grande do topo
-    st.title("OCORRÊNCIAS ATIVAS")
+    st.title("OCORRÊNCIAS ATIVAS")  # título dentro do wrapper
 
-    # Cards gerais por categoria (fixos, sem filtros)
     col_top1, col_top2 = st.columns(2)
-
     with col_top1:
         st.markdown(f"""
         <div class="kpi-card">
@@ -279,7 +274,6 @@ with st.container():
             <div class="kpi-value">{count_deslig}</div>
         </div>
         """, unsafe_allow_html=True)
-
     with col_top2:
         st.markdown(f"""
         <div class="kpi-card">
@@ -287,6 +281,9 @@ with st.container():
             <div class="kpi-value">{count_equip}</div>
         </div>
         """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)  # fecha wrapper
+
 
 
 # --- 5. Inicialização dos Filtros ---
