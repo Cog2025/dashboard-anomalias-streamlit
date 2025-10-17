@@ -74,6 +74,21 @@ st.markdown("""
         word-break: break-word;
         white-space: normal;
     }
+
+    /* Retângulo do bloco superior (OCORRÊNCIAS ATIVAS) */
+    div:has(> #top-anchor) {
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    padding: 16px 16px 8px 16px;
+    margin-bottom: 28px;
+    background: #111418;              /* opcional: cor do retângulo */
+    box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+    }
+
+    /* Responsivo (opcional) */
+    @media (max-width: 768px) {
+    div:has(> #top-anchor) { padding: 12px; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -236,8 +251,33 @@ df_todos_dados['Desligamento'] = pd.to_datetime(df_todos_dados['Desligamento'], 
 
 
 # --- Cards gerais por categoria (fixos, sem filtros) ---
-st.title("OCORRÊNCIAS ATIVAS")
-col_top1, col_top2 = st.columns(2)
+# --- Seção destacada: OCORRÊNCIAS ATIVAS ---
+with st.container():
+    # Anchor para aplicar o CSS do retângulo neste container
+    st.markdown('<div id="top-anchor"></div>', unsafe_allow_html=True)
+
+    # Título grande do topo
+    st.title("OCORRÊNCIAS ATIVAS")
+
+    # Cards gerais por categoria (fixos, sem filtros)
+    col_top1, col_top2 = st.columns(2)
+
+    with col_top1:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-label">USINAS DESLIGADAS NO MOMENTO</div>
+            <div class="kpi-value">{count_deslig}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_top2:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-label">EQUIPAMENTOS PARADOS NO MOMENTO</div>
+            <div class="kpi-value">{count_equip}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
 
 count_deslig = df_todos_dados[
     (df_todos_dados['Categoria'] == 'DESLIGAMENTOS') &
