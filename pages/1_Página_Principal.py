@@ -249,6 +249,16 @@ df_todos_dados = carregar_dados_google_sheets(st.session_state.cache_buster)
 # Garante que a coluna de data/hora está no formato correto
 df_todos_dados['Desligamento'] = pd.to_datetime(df_todos_dados['Desligamento'], errors='coerce')
 
+count_deslig = df_todos_dados[
+    (df_todos_dados['Categoria'] == 'DESLIGAMENTOS') &
+    (pd.isna(df_todos_dados['Normalização']) | (df_todos_dados['Normalização'] == ''))
+].shape[0]
+
+count_equip = df_todos_dados[
+    (df_todos_dados['Categoria'] == 'EQUIPAMENTOS') &
+    (pd.isna(df_todos_dados['Normalização']) | (df_todos_dados['Normalização'] == ''))
+].shape[0]
+
 
 # --- Cards gerais por categoria (fixos, sem filtros) ---
 # --- Seção destacada: OCORRÊNCIAS ATIVAS ---
@@ -277,33 +287,6 @@ with st.container():
             <div class="kpi-value">{count_equip}</div>
         </div>
         """, unsafe_allow_html=True)
-
-
-count_deslig = df_todos_dados[
-    (df_todos_dados['Categoria'] == 'DESLIGAMENTOS') &
-    (pd.isna(df_todos_dados['Normalização']) | (df_todos_dados['Normalização'] == ''))
-].shape[0]
-
-count_equip = df_todos_dados[
-    (df_todos_dados['Categoria'] == 'EQUIPAMENTOS') &
-    (pd.isna(df_todos_dados['Normalização']) | (df_todos_dados['Normalização'] == ''))
-].shape[0]
-
-with col_top1:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">USINAS DESLIGADAS NO MOMENTO</div>
-        <div class="kpi-value">{count_deslig}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_top2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">EQUIPAMENTOS PARADOS NO MOMENTO</div>
-        <div class="kpi-value">{count_equip}</div>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 # --- 5. Inicialização dos Filtros ---
