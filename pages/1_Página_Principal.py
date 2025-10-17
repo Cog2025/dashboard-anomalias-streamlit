@@ -261,10 +261,8 @@ count_equip = df_todos_dados[
 
 # --- Cards gerais por categoria (fixos, sem filtros) ---
 # --- Seção destacada: OCORRÊNCIAS ATIVAS ---
-with st.container():
-    st.markdown('<div class="top-block">', unsafe_allow_html=True)  # abre wrapper
-
-    st.title("OCORRÊNCIAS ATIVAS")  # título dentro do wrapper
+with st.container(border=True):
+    st.markdown("<h1 style='margin:0'>OCORRÊNCIAS ATIVAS</h1>", unsafe_allow_html=True)
 
     col_top1, col_top2 = st.columns(2)
     with col_top1:
@@ -274,6 +272,7 @@ with st.container():
             <div class="kpi-value">{count_deslig}</div>
         </div>
         """, unsafe_allow_html=True)
+
     with col_top2:
         st.markdown(f"""
         <div class="kpi-card">
@@ -282,7 +281,6 @@ with st.container():
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)  # fecha wrapper
 
 
 
