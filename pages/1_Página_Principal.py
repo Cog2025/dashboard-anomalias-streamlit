@@ -615,6 +615,7 @@ if not df_todos_dados.empty:
                 if i + j < len(rows):
                     index, row = rows[i + j]
                     with cols[j]:
+                        cliente   = html.escape(str(row.get("Cliente", "")))
                         categoria = html.escape(str(row.get("Categoria", "")))
                         ug = html.escape(str(row.get("UG", "N/A")))
                         tipo_ocorrencia = html.escape(str(row.get("Tipo de ocorrência", "")))
@@ -647,6 +648,7 @@ if not df_todos_dados.empty:
                         card_html = f"""
                         <div class="card-container">
                             <div class="card-title">{ug}</div>
+                            <div class="card-item"><span class="card-label">Cliente:</span> {cliente}</div>
                             <div class="card-item"><span class="card-label">Categoria:</span> {categoria}</div>
                             <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {tipo_ocorrencia}</div>
                             <div class="card-item"><span class="card-label">Ativo:</span> {ativo}</div>
