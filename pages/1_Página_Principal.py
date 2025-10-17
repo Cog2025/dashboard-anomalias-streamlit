@@ -236,6 +236,7 @@ df_todos_dados['Desligamento'] = pd.to_datetime(df_todos_dados['Desligamento'], 
 
 
 # --- Cards gerais por categoria (fixos, sem filtros) ---
+st.title("OCORRÊNCIAS ATIVAS")
 col_top1, col_top2 = st.columns(2)
 
 count_deslig = df_todos_dados[
@@ -295,7 +296,7 @@ if 'filtros_ocorrencias' not in st.session_state:
 
 
 # --- 6. Título e KPIs ---
-st.title('Ocorrências ativas')
+st.header('OCORRÊNCIAS FILTRADAS')
 col_kpi1, col_kpi2 = st.columns(2)
 with col_kpi1:
     if not df_todos_dados.empty and 'Normalização' in df_todos_dados.columns:
