@@ -120,15 +120,38 @@ if ('id_unico_para_editar' not in st.session_state or not st.session_state['id_u
     df_lista = st.session_state.get('df_lista_para_editar')
 
     if df_lista is not None and not df_lista.empty:
-        st.subheader("Lista de Ocorrências (da página principal)")
-        st.dataframe(df_lista.drop(columns=[c for c in ['ID_Unico'] if c in df_lista.columns]), use_container_width=True)
+        # Fallback: cria 'Display' se não existir
+        if 'Display' not in df_lista.columns:
+            # garante string de data amigável
+            if 'Desligamento' in df_lista.columns:
+                df_tmp = df_lista.copy()
+                if not pd.api.types.is_datetime64_any_dtype(df_tmp['Desligamento']):
+                    df_tmp['Desligamento'] = pd.to_datetime(df_tmp['Desligamento'], errors='coerce')
+                disp_data = df_tmp['Desligamento'].dt.strftime('%d/%m/%Y %H:%M').fillna('')
+            else:
+                disp_data = pd.Series([''] * len(df_lista))
 
+            df_lista['Display'] = (
+                df_lista.get('UG','').astype(str) + " | " +
+                df_lista.get('Ativo','').astype(str) + " | " +
+                df_lista.get('Nome Ativo','').astype(str) + " | " +
+                df_lista.get('Ocorrência','').astype(str) + " | " +
+                disp_data.astype(str)
+            )
+
+        st.subheader("Lista de Ocorrências (da página principal)")
+        st.dataframe(
+            df_lista.drop(columns=[c for c in ['ID_Unico'] if c in df_lista.columns]),
+            use_container_width=True
+        )
+
+        options = df_lista['Display'].tolist()
         occ_disp = st.selectbox(
             "Selecione a ocorrência para editar:",
-            options=df_lista['Display'] if 'Display' in df_lista.columns else [],
+            options=(df_lista['Display'].tolist() if 'Display' in df_lista.columns else []),
             index=None,
             placeholder="Escolha uma ocorrência..."
-        )
+            )
         if occ_disp:
             sel = df_lista[df_lista['Display'] == occ_disp].iloc[0]
             st.session_state['id_unico_para_editar'] = sel['ID_Unico']
@@ -205,22 +228,33 @@ else:
                         worksheet = workbook.worksheet(categoria)
                         all_data = worksheet.get_all_values()
                         headers = all_data[0]
-                        
-                        row_to_edit = -1
-                        idx_ug = headers.index('UG')
-                        idx_ativo = headers.index('ATIVO')
-                        idx_ocorrencia = headers.index('OCORRÊNCIA')
-                        idx_desligamento = headers.index('DESLIGAMENTO')
 
+                        # Normaliza cabeçalhos e calcula índices de forma robusta
+                        headers_map = {h.strip().upper(): i for i, h in enumerate(headers)}
+                        campos = ['UG','ATIVO','OCORRÊNCIA','DESLIGAMENTO']
+                        faltando = [c for c in campos if c not in headers_map]
+                        if faltando:
+                            st.error(f"Colunas ausentes na planilha: {', '.join(faltando)}")
+                            st.stop()
+
+                        idx_ug = headers_map['UG']
+                        idx_ativo = headers_map['ATIVO']
+                        idx_ocorrencia = headers_map['OCORRÊNCIA']
+                        idx_desligamento = headers_map['DESLIGAMENTO']
+
+                        row_to_edit = -1
                         for i, row in enumerate(all_data[1:], start=2):
                             try:
                                 desligamento_dt = pd.to_datetime(row[idx_desligamento], errors='coerce')
-                                if pd.isna(desligamento_dt): continue
+                                if pd.isna(desligamento_dt):
+                                    continue
                                 current_id = f"{row[idx_ug].upper()}|{row[idx_ativo].upper()}|{row[idx_ocorrencia].upper()}|{desligamento_dt}"
                                 if current_id == id_para_editar:
                                     row_to_edit = i
                                     break
-                            except (IndexError, ValueError): continue
+                            except (IndexError, ValueError):
+                                continue
+
                         
                         if row_to_edit != -1:
                             dados_atualizados = ocorrencia.copy()
@@ -259,6 +293,7 @@ else:
                             worksheet.update(f'A{row_to_edit}', [linha_para_atualizar], value_input_option='USER_ENTERED')
 
                             st.success("Ocorrência atualizada com sucesso!")
+                            st.session_state.pop('id_unico_para_editar', None)
                             st.cache_data.clear()
                         else:
                             st.error("Não foi possível encontrar a linha na Planilha Google para editar.")

@@ -48,7 +48,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
     .kpi-value { font-size: 3em; font-weight: bold; color: #FF4B4B; }
-    .kpi-label { font-size: 1.2em; color: #AAAAAA; }
+    .kpi-label { font-size: 1.2em; color: #FFFFFF; }
     .stMultiSelect { max-height: 200px; overflow-y: auto; }
     .column-header { font-weight: bold; font-size: 1.2em; }
     
@@ -234,6 +234,7 @@ df_todos_dados = carregar_dados_google_sheets(st.session_state.cache_buster)
 # Garante que a coluna de data/hora está no formato correto
 df_todos_dados['Desligamento'] = pd.to_datetime(df_todos_dados['Desligamento'], errors='coerce')
 
+
 # --- Cards gerais por categoria (fixos, sem filtros) ---
 col_top1, col_top2 = st.columns(2)
 
@@ -262,10 +263,6 @@ with col_top2:
         <div class="kpi-value">{count_equip}</div>
     </div>
     """, unsafe_allow_html=True)
-
-# Título renomeado
-st.title('Ocorrências ativas')
-
 
 
 # --- 5. Inicialização dos Filtros ---
@@ -298,7 +295,7 @@ if 'filtros_ocorrencias' not in st.session_state:
 
 
 # --- 6. Título e KPIs ---
-st.title('Usinas desligadas no momento')
+st.title('Ocorrências ativas')
 col_kpi1, col_kpi2 = st.columns(2)
 with col_kpi1:
     if not df_todos_dados.empty and 'Normalização' in df_todos_dados.columns:
@@ -335,14 +332,16 @@ def _marcar(prefixo_key: str, itens: list, filtro_key: str, marcar_todos: bool, 
 
 
 if not df_todos_dados.empty:
+    if 'categoria_top' not in st.session_state:
+        st.session_state['categoria_top'] = 'Ambas'   # inicializa só uma vez
+
     st.markdown("#### Filtrar por categoria (planilha)")
-    cat_opt = st.radio(
+    st.radio(
         "Categoria:",
         options=["Ambas", "DESLIGAMENTOS", "EQUIPAMENTOS"],
-        index=0,
         horizontal=True,
         label_visibility="collapsed",
-        key="categoria_top"
+        key="categoria_top"   # sem index
     )
 
     st.subheader("Selecione o período desejado")
@@ -563,11 +562,20 @@ if not df_todos_dados.empty:
 
 
         df_sorted = df_desligadas.sort_values(by=sort_by_column, ascending=is_ascending, na_position='last')
+
+        # Criamos uma coluna 'Display' para facilitar a seleção no selectbox
+        df_sorted['Display'] = (
+            df_sorted['UG'].astype(str) + " | " + df_sorted['Ativo'].astype(str) + " | " +
+            df_sorted['Nome Ativo'].astype(str) + " | " + df_sorted['Ocorrência'].astype(str) + " | " +
+            df_sorted['Desligamento'].dt.strftime('%d/%m/%Y %H:%M').fillna('') + 
+            "  ·  " + df_sorted['ID_Unico'].astype(str).str[-6:]
+        )
+        
         # Disponibiliza lista filtrada/ordenada para a página de edição
-        cols_minimos = ['ID_Unico', 'UG', 'Ativo', 'Nome Ativo', 'Ocorrência', 'Desligamento', 'Categoria', 
-                        'Tipo de ocorrência', 'Operador', 'Descrição', 'OS', 'Protocolo', 
-                        'Normalização', 'Atendimento Loop', 'Atendimento Terceiros', 'Cliente Avisado']
-        cols_salvar = [c for c in cols_minimos if c in df_sorted.columns] + (['Display'] if 'Display' in df_sorted.columns else [])
+        cols_minimos = ['ID_Unico','UG','Ativo','Nome Ativo','Ocorrência','Desligamento','Categoria',
+                        'Tipo de ocorrência','Operador','Descrição','OS','Protocolo',
+                        'Normalização','Atendimento Loop','Atendimento Terceiros','Cliente Avisado']
+        cols_salvar = [c for c in cols_minimos if c in df_sorted.columns] + ['Display']
         st.session_state['df_lista_para_editar'] = df_sorted[cols_salvar].copy()
 
 
@@ -577,31 +585,31 @@ if not df_todos_dados.empty:
         st.write("### Editar uma Ocorrência")
 
 
-        # Criamos uma coluna 'Display' para facilitar a seleção no selectbox
-        df_sorted['Display'] = df_sorted['UG'].astype(str) + " | " + \
-                               df_sorted['Ativo'].astype(str) + " | " + \
-                               df_sorted['Nome Ativo'].astype(str) + " | " + \
-                               df_sorted['Ocorrência'].astype(str) + " | " + \
-                               df_sorted['Desligamento'].dt.strftime('%d/%m/%Y %H:%M')
-
-
+        opts = df_sorted['Display'].dropna().astype(str).tolist()
         ocorrencia_selecionada_display = st.selectbox(
             "Selecione a ocorrência para editar:",
-            options=df_sorted['Display'],
-            index=None, # Nenhum selecionado por padrão
+            options=opts,
+            index=None,
             placeholder="Escolha uma ocorrência..."
         )
 
-
+        # Prepara o ID quando houver seleção
         if ocorrencia_selecionada_display:
-            # AQUI, passamos a pegar o valor da nova coluna 'ID_Unico'
-            id_unico_para_editar = df_sorted[df_sorted['Display'] == ocorrencia_selecionada_display].iloc[0]['ID_Unico']
-    
-            # E salvamos em uma nova variável de sessão para clareza
+            id_unico_para_editar = df_sorted.loc[
+                df_sorted['Display'] == ocorrencia_selecionada_display, 'ID_Unico'
+            ].head(1).item()
             st.session_state['id_unico_para_editar'] = id_unico_para_editar
-    
-            if st.button("📝 Editar Ocorrência Selecionada"):
-                st.switch_page("pages/3_Editar_Ocorrência.py")
+
+        # Limpa o ID se a seleção for removida
+        if not ocorrencia_selecionada_display and 'id_unico_para_editar' in st.session_state:
+            st.session_state.pop('id_unico_para_editar')
+
+        # Botão sempre visível, habilita só com seleção
+        btn_disabled = not bool(ocorrencia_selecionada_display)
+        if st.button("📝 Editar Ocorrência Selecionada", disabled=btn_disabled):
+            st.switch_page("pages/3_Editar_Ocorrência.py")
+
+
         
         # --- LISTA DE OCORRÊNCIAS (TABELA) ---
         st.header("Lista de Ocorrências (Tabela)")
