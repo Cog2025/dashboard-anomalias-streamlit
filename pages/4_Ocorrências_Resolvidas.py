@@ -443,19 +443,26 @@ if not df.empty:
 
         # Cards de detalhes
         st.header("Detalhes por Ocorrência (Cards)")
-        num_cols = 4
+
+        num_cols = 4  # igual à página principal
         rows = list(df_sorted.iterrows())
 
         def fmt_dt(dt):
             if pd.notna(dt):
                 return dt.strftime('%d/%m/%Y'), dt.strftime('%H:%M')
-            return '',''
+            return '', ''
 
         for i in range(0, len(rows), num_cols):
-            cols = st.columns(num_cols)
+            try:
+                cols = st.columns(num_cols, gap="small")  # grid por linha
+            except TypeError:
+                cols = st.columns(num_cols)               # fallback
+
             for j in range(num_cols):
-                if i + j < len(rows):
-                    _, r = rows[i + j]
+                if i + j >= len(rows):
+                    break
+                _, r = rows[i + j]
+                with cols[j]:
                     cliente   = html.escape(str(r.get("Cliente", "")))
                     categoria = html.escape(str(r.get("Categoria", "")))
                     ug        = html.escape(str(r.get("UG", "N/A")))
