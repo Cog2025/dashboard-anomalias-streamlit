@@ -264,43 +264,6 @@ if df_todos_dados is None or df_todos_dados.empty:
 # Garante que a coluna de data/hora está no formato correto
 df_todos_dados['Desligamento'] = pd.to_datetime(df_todos_dados['Desligamento'], errors='coerce')
 
-# Cliente (Página Principal)
-options_clientes = sorted(df_todos_dados['Cliente'].unique().tolist())
-default_clientes = _sanitize_default(st.session_state.get('filtros_clientes', []), options_clientes)
-st.session_state.filtros_clientes = default_clientes
-st.session_state.filtros_clientes = st.multiselect(
-    ' ', options=options_clientes,
-    default=default_clientes, label_visibility='hidden'
-)
-
-
-# Tipo de ocorrência
-options_tipos = sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist())
-default_tipos = _sanitize_default(st.session_state.get('filtros_tipos', []), options_tipos)
-st.session_state.filtros_tipos = default_tipos
-st.session_state.filtros_tipos = st.multiselect(
-    ' ', options=options_tipos,
-    default=default_tipos, label_visibility='hidden'
-)
-
-# Ativo
-options_ativos = sorted(df_todos_dados['Ativo'].unique().tolist())
-default_ativos = _sanitize_default(st.session_state.get('filtros_ativos', []), options_ativos)
-st.session_state.filtros_ativos = default_ativos
-st.session_state.filtros_ativos = st.multiselect(
-    ' ', options=options_ativos,
-    default=default_ativos, label_visibility='hidden'
-)
-
-# Ocorrência
-options_ocorr = sorted(df_todos_dados['Ocorrência'].unique().tolist())
-default_ocorr = _sanitize_default(st.session_state.get('filtros_ocorrencias', []), options_ocorr)
-st.session_state.filtros_ocorrencias = default_ocorr
-st.session_state.filtros_ocorrencias = st.multiselect(
-    ' ', options=options_ocorr,
-    default=default_ocorr, label_visibility='hidden'
-)
-
 count_deslig = df_todos_dados[
     (df_todos_dados['Categoria'] == 'DESLIGAMENTOS') &
     (pd.isna(df_todos_dados['Normalização']) | (df_todos_dados['Normalização'] == ''))
@@ -502,8 +465,10 @@ if not df_todos_dados.empty:
                 ' ',
                 options=options_clientes,
                 default=default_clientes,
-                label_visibility='hidden'
+                label_visibility='hidden',
+                key='ms_clientes'  # NOVO
             )
+
 
 
     with col_ug:
@@ -535,49 +500,96 @@ if not df_todos_dados.empty:
                 ' ',
                 options=ugs_disponiveis,
                 default=st.session_state.filtros_ugs,
-                label_visibility='hidden'
+                label_visibility='hidden',
+                key='ms_ugs'  # NOVO
             )
+
 
 
 
     with col_tipo:
         with st.container(border=True):
             st.write("Tipo de Ocorrência:")
+
             col_b = st.columns(2)
             with col_b[0]:
                 if st.button('Sel. Todos', key='sel_tipo', use_container_width=True):
-                    st.session_state.filtros_tipos = sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist()); st.rerun()
+                    st.session_state.filtros_tipos = sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist())
+                    st.rerun()
             with col_b[1]:
                 if st.button('Desmarcar', key='des_tipo', use_container_width=True):
-                    st.session_state.filtros_tipos = []; st.rerun()
-            st.session_state.filtros_tipos = st.multiselect(' ', options=sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist()),
-                                                            default=st.session_state.filtros_tipos, label_visibility='hidden')
+                    st.session_state.filtros_tipos = []
+                    st.rerun()
+
+            options_tipos = sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist())
+            default_tipos = _sanitize_default(st.session_state.get('filtros_tipos', []), options_tipos)
+            st.session_state.filtros_tipos = default_tipos
+
+            st.session_state.filtros_tipos = st.multiselect(
+                ' ',
+                options=options_tipos,
+                default=default_tipos,
+                label_visibility='hidden',
+                key='ms_tipos'
+            )
+
+
 
     with col_ativo:
         with st.container(border=True):
             st.write("Ativo:")
+
             col_b = st.columns(2)
             with col_b[0]:
                 if st.button('Sel. Todos', key='sel_ativo', use_container_width=True):
-                    st.session_state.filtros_ativos = sorted(df_todos_dados['Ativo'].unique().tolist()); st.rerun()
+                    st.session_state.filtros_ativos = sorted(df_todos_dados['Ativo'].unique().tolist())
+                    st.rerun()
             with col_b[1]:
                 if st.button('Desmarcar', key='des_ativo', use_container_width=True):
-                    st.session_state.filtros_ativos = []; st.rerun()
-            st.session_state.filtros_ativos = st.multiselect(' ', options=sorted(df_todos_dados['Ativo'].unique().tolist()),
-                                                            default=st.session_state.filtros_ativos, label_visibility='hidden')
+                    st.session_state.filtros_ativos = []
+                    st.rerun()
+
+            options_ativos = sorted(df_todos_dados['Ativo'].unique().tolist())
+            default_ativos = _sanitize_default(st.session_state.get('filtros_ativos', []), options_ativos)
+            st.session_state.filtros_ativos = default_ativos
+
+            st.session_state.filtros_ativos = st.multiselect(
+                ' ',
+                options=options_ativos,
+                default=default_ativos,
+                label_visibility='hidden',
+                key='ms_ativos'
+            )
+
+
 
     with col_ocorrencia:
         with st.container(border=True):
             st.write("Ocorrência:")
+
             col_b = st.columns(2)
             with col_b[0]:
                 if st.button('Sel. Todos', key='sel_ocorr', use_container_width=True):
-                    st.session_state.filtros_ocorrencias = sorted(df_todos_dados['Ocorrência'].unique().tolist()); st.rerun()
+                    st.session_state.filtros_ocorrencias = sorted(df_todos_dados['Ocorrência'].unique().tolist())
+                    st.rerun()
             with col_b[1]:
                 if st.button('Desmarcar', key='des_ocorr', use_container_width=True):
-                    st.session_state.filtros_ocorrencias = []; st.rerun()
-            st.session_state.filtros_ocorrencias = st.multiselect(' ', options=sorted(df_todos_dados['Ocorrência'].unique().tolist()),
-                                                                default=st.session_state.filtros_ocorrencias, label_visibility='hidden')
+                    st.session_state.filtros_ocorrencias = []
+                    st.rerun()
+
+            options_ocorr = sorted(df_todos_dados['Ocorrência'].unique().tolist())
+            default_ocorr = _sanitize_default(st.session_state.get('filtros_ocorrencias', []), options_ocorr)
+            st.session_state.filtros_ocorrencias = default_ocorr
+
+            st.session_state.filtros_ocorrencias = st.multiselect(
+                ' ',
+                options=options_ocorr,
+                default=default_ocorr,
+                label_visibility='hidden',
+                key='ms_ocorrencias'
+            )
+
+
 
 
 
