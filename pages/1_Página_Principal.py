@@ -137,6 +137,19 @@ def fetch_sheet_as_df(worksheet):
     return df
 
 
+# helper (coloque antes do bloco de filtros)
+def _sanitize_default(default, options):
+    if default is None:
+        return []
+    if not isinstance(default, list):
+        try:
+            default = list(default)
+        except Exception:
+            default = [default]
+    return [x for x in default if x in options]
+
+
+
 @st.cache_data(ttl=600)
 def carregar_dados_google_sheets(cache_buster: int = 0):
     try:
@@ -243,10 +256,58 @@ if 'cache_buster' not in st.session_state:
 
 df_todos_dados = carregar_dados_google_sheets(st.session_state.cache_buster)
 
+if df_todos_dados is None or df_todos_dados.empty:
+    st.warning("Não há dados carregados para montar os filtros.")
+    st.stop()
 
 
 # Garante que a coluna de data/hora está no formato correto
 df_todos_dados['Desligamento'] = pd.to_datetime(df_todos_dados['Desligamento'], errors='coerce')
+
+# Cliente (Página Principal)
+options_clientes = sorted(df_todos_dados['Cliente'].unique().tolist())
+default_clientes = _sanitize_default(st.session_state.get('filtros_clientes', []), options_clientes)
+st.session_state.filtros_clientes = default_clientes
+st.session_state.filtros_clientes = st.multiselect(
+    ' ', options=options_clientes,
+    default=default_clientes, label_visibility='hidden'
+)
+
+
+# UG (usa df_temp)
+options_ugs = sorted(df_temp['UG'].unique().tolist())
+default_ugs = _sanitize_default(st.session_state.get('filtros_ugs', []), options_ugs)
+st.session_state.filtros_ugs = default_ugs
+st.session_state.filtros_ugs = st.multiselect(
+    ' ', options=options_ugs,
+    default=default_ugs, label_visibility='hidden'
+)
+# Tipo de ocorrência
+options_tipos = sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist())
+default_tipos = _sanitize_default(st.session_state.get('filtros_tipos', []), options_tipos)
+st.session_state.filtros_tipos = default_tipos
+st.session_state.filtros_tipos = st.multiselect(
+    ' ', options=options_tipos,
+    default=default_tipos, label_visibility='hidden'
+)
+
+# Ativo
+options_ativos = sorted(df_todos_dados['Ativo'].unique().tolist())
+default_ativos = _sanitize_default(st.session_state.get('filtros_ativos', []), options_ativos)
+st.session_state.filtros_ativos = default_ativos
+st.session_state.filtros_ativos = st.multiselect(
+    ' ', options=options_ativos,
+    default=default_ativos, label_visibility='hidden'
+)
+
+# Ocorrência
+options_ocorr = sorted(df_todos_dados['Ocorrência'].unique().tolist())
+default_ocorr = _sanitize_default(st.session_state.get('filtros_ocorrencias', []), options_ocorr)
+st.session_state.filtros_ocorrencias = default_ocorr
+st.session_state.filtros_ocorrencias = st.multiselect(
+    ' ', options=options_ocorr,
+    default=default_ocorr, label_visibility='hidden'
+)
 
 count_deslig = df_todos_dados[
     (df_todos_dados['Categoria'] == 'DESLIGAMENTOS') &
