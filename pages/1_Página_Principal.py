@@ -275,7 +275,6 @@ st.session_state.filtros_clientes = st.multiselect(
 
 
 # UG (usa df_temp)
-options_ugs = sorted(df_temp['UG'].unique().tolist())
 default_ugs = _sanitize_default(st.session_state.get('filtros_ugs', []), options_ugs)
 st.session_state.filtros_ugs = default_ugs
 st.session_state.filtros_ugs = st.multiselect(
@@ -519,15 +518,16 @@ if not df_todos_dados.empty:
         with st.container(border=True):
             st.write("UG:")
 
-            # df_temp sempre definido com base no Cliente selecionado
             clientes_sel = st.session_state.get('filtros_clientes', [])
             if not isinstance(clientes_sel, list):
                 clientes_sel = [clientes_sel] if clientes_sel is not None else []
+            df_temp = df_todos_dados[df_todos_dados['Cliente'].isin(clientes_sel)]
+            ugs_disponiveis = sorted(df_temp['UG'].unique().tolist())
+
 
             df_temp = df_todos_dados[df_todos_dados['Cliente'].isin(clientes_sel)]
             ugs_disponiveis = sorted(df_temp['UG'].unique().tolist())
 
-            # alinhar default ao conjunto disponível
             default_ugs = _sanitize_default(st.session_state.get('filtros_ugs', []), ugs_disponiveis)
             st.session_state.filtros_ugs = default_ugs
 
@@ -547,6 +547,7 @@ if not df_todos_dados.empty:
                 default=st.session_state.filtros_ugs,
                 label_visibility='hidden'
             )
+
 
 
     with col_tipo:
