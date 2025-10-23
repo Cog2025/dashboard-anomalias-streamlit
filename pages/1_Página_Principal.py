@@ -495,28 +495,59 @@ if not df_todos_dados.empty:
             col_b = st.columns(2)
             with col_b[0]:
                 if st.button('Sel. Todos', key='sel_cli', use_container_width=True):
-                    st.session_state.filtros_clientes = sorted(df_todos_dados['Cliente'].unique().tolist()); st.rerun()
+                    st.session_state.filtros_clientes = sorted(df_todos_dados['Cliente'].unique().tolist())
+                    st.rerun()
             with col_b[1]:
                 if st.button('Desmarcar', key='des_cli', use_container_width=True):
-                    st.session_state.filtros_clientes = []; st.rerun()
-            st.session_state.filtros_clientes = st.multiselect(' ', options=sorted(df_todos_dados['Cliente'].unique().tolist()),
-                                                            default=st.session_state.filtros_clientes, label_visibility='hidden')
+                    st.session_state.filtros_clientes = []
+                    st.rerun()
+
+            # opções e default sanitizado
+            options_clientes = sorted(df_todos_dados['Cliente'].unique().tolist())
+            default_clientes = _sanitize_default(st.session_state.get('filtros_clientes', []), options_clientes)
+            st.session_state.filtros_clientes = default_clientes
+
+            st.session_state.filtros_clientes = st.multiselect(
+                ' ',
+                options=options_clientes,
+                default=default_clientes,
+                label_visibility='hidden'
+            )
+
 
     with col_ug:
         with st.container(border=True):
             st.write("UG:")
-            df_temp = df_todos_dados[df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)]
+
+            # df_temp sempre definido com base no Cliente selecionado
+            clientes_sel = st.session_state.get('filtros_clientes', [])
+            if not isinstance(clientes_sel, list):
+                clientes_sel = [clientes_sel] if clientes_sel is not None else []
+
+            df_temp = df_todos_dados[df_todos_dados['Cliente'].isin(clientes_sel)]
             ugs_disponiveis = sorted(df_temp['UG'].unique().tolist())
-            st.session_state.filtros_ugs = [ug for ug in st.session_state.filtros_ugs if ug in ugs_disponiveis]
+
+            # alinhar default ao conjunto disponível
+            default_ugs = _sanitize_default(st.session_state.get('filtros_ugs', []), ugs_disponiveis)
+            st.session_state.filtros_ugs = default_ugs
+
             col_b = st.columns(2)
             with col_b[0]:
                 if st.button('Sel. Todos', key='sel_ug', use_container_width=True):
-                    st.session_state.filtros_ugs = ugs_disponiveis; st.rerun()
+                    st.session_state.filtros_ugs = ugs_disponiveis
+                    st.rerun()
             with col_b[1]:
                 if st.button('Desmarcar', key='des_ug', use_container_width=True):
-                    st.session_state.filtros_ugs = []; st.rerun()
-            st.session_state.filtros_ugs = st.multiselect(' ', options=ugs_disponiveis,
-                                                        default=st.session_state.filtros_ugs, label_visibility='hidden')
+                    st.session_state.filtros_ugs = []
+                    st.rerun()
+
+            st.session_state.filtros_ugs = st.multiselect(
+                ' ',
+                options=ugs_disponiveis,
+                default=st.session_state.filtros_ugs,
+                label_visibility='hidden'
+            )
+
 
     with col_tipo:
         with st.container(border=True):
