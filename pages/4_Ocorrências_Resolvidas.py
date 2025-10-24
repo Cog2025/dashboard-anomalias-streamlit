@@ -42,6 +42,11 @@ def render_loading_overlay():
 
 render_loading_overlay()
 
+# Fase 1: mostrar overlay e parar para renderizar UI
+if st.session_state.get('loading', False) and not st.session_state.get('overlay_rendered', False):
+    st.session_state['overlay_rendered'] = True
+    st.stop()
+
 
 # --- 2. Dicionário para tradução dos meses (mesmo da página principal) ---
 meses_traducao = {
@@ -180,6 +185,30 @@ if 'cache_buster' not in st.session_state:
 # 1) Carrega dados
 df = carregar_dados_google_sheets(st.session_state.cache_buster)
 
+# Fase 2: dados prontos -> fechar overlay e rerender
+if st.session_state.get('loading', False):
+    st.session_state.loading = False
+    st.session_state.overlay_rendered = False
+    st.rerun()
+
+
+# Normalização case-insensitive (após carregar df)
+for col, key in [('Cliente','CLI'),('UG','UG'),('Tipo de ocorrência','TIPO'),('Ativo','ATV'),('Ocorrência','OCR')]:
+    if col in df.columns:
+        df[f'__{key}_NORM__'] = df[col].astype(str).str.strip().str.upper()
+
+def dedup_case_insensitive(seq):
+    seen, out = set(), []
+    for x in seq:
+        s = str(x).strip()
+        k = s.upper()
+        if k and k != '0' and k not in seen:
+            seen.add(k)
+            out.append(s)
+    return sorted(out)
+
+
+
 # 2) Valida e para cedo se vazio
 if df is None or df.empty:
     st.warning("Não foi possível carregar os dados. Verifique as credenciais ou a conexão.")
@@ -267,6 +296,7 @@ col_left, _ = st.columns([0.2, 0.8])
 with col_left:
     if st.button('Atualizar Dados'):
         st.session_state.loading = True
+        st.session_state.overlay_render = False
         st.session_state.cache_buster = int(time())
         st.cache_data.clear()
         st.rerun()
@@ -435,17 +465,39 @@ if not df.empty:
                     d for d in dias_disponiveis if st.session_state.get(f'cb_dia_{PAGE_ID}_{d}', False)
                 ]
 
-    # Filtros adicionais
+    # === Preparação (normalização + dedupe) ===
+    # Cria colunas normalizadas para comparação case-insensitive
+    for col, key in [('Cliente','CLI'), ('UG','UG'), ('Tipo de ocorrência','TIPO'), ('Ativo','ATV'), ('Ocorrência','OCR')]:
+        if col in df.columns:
+            df[f'__{key}_NORM__'] = df[col].astype(str).str.strip().str.upper()
+
+    # Utilitário: remove duplicados por caso e filtra '' e '0'
+    def dedup_case_insensitive(seq):
+        seen, out = set(), []
+        for x in seq:
+            s = str(x).strip()
+            k = s.upper()
+            if k and k != '0' and k not in seen:
+                seen.add(k)
+                out.append(s)
+        return sorted(out)
+
+    # === Filtros Adicionais (case-insensitive + sincronização) ===
     st.subheader("Filtros Adicionais")
     col_cliente, col_ug, col_tipo, col_ativo, col_ocr = st.columns(5)
 
+    # Helper local para obter seleção normalizada (UPPER)
+    def _sel_norm(key_modelo):
+        return [str(v).strip().upper() for v in st.session_state.get(key_modelo, []) if str(v).strip() and str(v).strip() != '0']
+
+    # Cliente
     with col_cliente:
         with st.container(border=True):
             st.write("Cliente:")
-            options_clientes = sorted(df['Cliente'].unique().tolist())
-            default_clientes = _sanitize_default(st.session_state.get(K('filtros_clientes'), []), options_clientes)
-            st.session_state[K('filtros_clientes')] = default_clientes
-
+            options_clientes = dedup_case_insensitive(df['Cliente'].tolist())
+            # Inicializa com "Sel. Todos" na primeira carga
+            if K('filtros_clientes') not in st.session_state:
+                st.session_state[K('filtros_clientes')] = options_clientes[:]
             key_ms_cli = f'ms_clientes_{PAGE_ID}'
             if key_ms_cli not in st.session_state:
                 st.session_state[key_ms_cli] = st.session_state[K('filtros_clientes')]
@@ -460,22 +512,24 @@ if not df.empty:
 
             st.session_state[K('filtros_clientes')] = st.multiselect(
                 ' ', options=options_clientes,
-                default=st.session_state.get(key_ms_cli, default_clientes),
+                default=st.session_state.get(key_ms_cli, options_clientes),
                 label_visibility='hidden',
                 key=key_ms_cli
             )
 
-
-
+    # UG (dependente de Cliente, case-insensitive)
     with col_ug:
         with st.container(border=True):
             st.write("UG:")
-            df_temp = df[df['Cliente'].isin(st.session_state.get(K('filtros_clientes'), []))]
-            ugs_disp = sorted(df_temp['UG'].unique().tolist())
+            sel_cli_norm = _sel_norm(K('filtros_clientes'))
+            if sel_cli_norm:
+                df_temp = df[df['__CLI_NORM__'].isin(sel_cli_norm)]
+            else:
+                df_temp = df
+            ugs_disp = dedup_case_insensitive(df_temp['UG'].tolist())
 
-            default_ugs = _sanitize_default(st.session_state.get(K('filtros_ugs'), []), ugs_disp)
-            st.session_state[K('filtros_ugs')] = default_ugs
-
+            if K('filtros_ugs') not in st.session_state:
+                st.session_state[K('filtros_ugs')] = ugs_disp[:]
             key_ms_ug = f'ms_ugs_{PAGE_ID}'
             if key_ms_ug not in st.session_state:
                 st.session_state[key_ms_ug] = st.session_state[K('filtros_ugs')]
@@ -490,28 +544,23 @@ if not df.empty:
 
             st.session_state[K('filtros_ugs')] = st.multiselect(
                 ' ', options=ugs_disp,
-                default=st.session_state.get(key_ms_ug, default_ugs),
+                default=st.session_state.get(key_ms_ug, ugs_disp),
                 label_visibility='hidden',
                 key=key_ms_ug
             )
 
-
-
+    # Tipo de Ocorrência
     with col_tipo:
         with st.container(border=True):
             st.write("Tipo de Ocorrência:")
+            opts_tipos = dedup_case_insensitive(df['Tipo de ocorrência'].tolist())
 
-            # Opções e default sanitizado
-            opts_tipos = sorted(df['Tipo de ocorrência'].unique().tolist())
-            default_tipos = _sanitize_default(st.session_state.get(K('filtros_tipos'), []), opts_tipos)
-            st.session_state[K('filtros_tipos')] = default_tipos
-
-            # Key do widget do multiselect (estado do componente)
+            if K('filtros_tipos') not in st.session_state:
+                st.session_state[K('filtros_tipos')] = opts_tipos[:]
             key_ms_tipos = f'ms_tipos_{PAGE_ID}'
             if key_ms_tipos not in st.session_state:
                 st.session_state[key_ms_tipos] = st.session_state[K('filtros_tipos')]
 
-            # Botões de seleção/limpeza sincronizando UI + modelo
             c = st.columns(2)
             if c[0].button('Sel. Todos', key=f'sel_tipo_{PAGE_ID}', use_container_width=True):
                 _sync_ms(key_ms_tipos, K('filtros_tipos'), opts_tipos)
@@ -520,23 +569,21 @@ if not df.empty:
                 _sync_ms(key_ms_tipos, K('filtros_tipos'), [])
                 st.rerun()
 
-            # Multiselect lê o estado do widget (key_ms_tipos)
             st.session_state[K('filtros_tipos')] = st.multiselect(
                 ' ', options=opts_tipos,
-                default=st.session_state.get(key_ms_tipos, default_tipos),
+                default=st.session_state.get(key_ms_tipos, opts_tipos),
                 label_visibility='hidden',
                 key=key_ms_tipos
             )
 
-
+    # Ativo
     with col_ativo:
         with st.container(border=True):
             st.write("Ativo:")
+            opts_ativos = dedup_case_insensitive(df['Ativo'].tolist())
 
-            opts_ativos = sorted(df['Ativo'].unique().tolist())
-            default_ativos = _sanitize_default(st.session_state.get(K('filtros_ativos'), []), opts_ativos)
-            st.session_state[K('filtros_ativos')] = default_ativos
-
+            if K('filtros_ativos') not in st.session_state:
+                st.session_state[K('filtros_ativos')] = opts_ativos[:]
             key_ms_ativos = f'ms_ativos_{PAGE_ID}'
             if key_ms_ativos not in st.session_state:
                 st.session_state[key_ms_ativos] = st.session_state[K('filtros_ativos')]
@@ -551,20 +598,19 @@ if not df.empty:
 
             st.session_state[K('filtros_ativos')] = st.multiselect(
                 ' ', options=opts_ativos,
-                default=st.session_state.get(key_ms_ativos, default_ativos),
+                default=st.session_state.get(key_ms_ativos, opts_ativos),
                 label_visibility='hidden',
                 key=key_ms_ativos
             )
 
-
+    # Ocorrência
     with col_ocr:
         with st.container(border=True):
             st.write("Ocorrência:")
+            opts_ocr = dedup_case_insensitive(df['Ocorrência'].tolist())
 
-            opts_ocr = sorted(df['Ocorrência'].unique().tolist())
-            default_ocr = _sanitize_default(st.session_state.get(K('filtros_ocorrencias'), []), opts_ocr)
-            st.session_state[K('filtros_ocorrencias')] = default_ocr
-
+            if K('filtros_ocorrencias') not in st.session_state:
+                st.session_state[K('filtros_ocorrencias')] = opts_ocr[:]
             key_ms_ocr = f'ms_ocorrencias_{PAGE_ID}'
             if key_ms_ocr not in st.session_state:
                 st.session_state[key_ms_ocr] = st.session_state[K('filtros_ocorrencias')]
@@ -579,10 +625,24 @@ if not df.empty:
 
             st.session_state[K('filtros_ocorrencias')] = st.multiselect(
                 ' ', options=opts_ocr,
-                default=st.session_state.get(key_ms_ocr, default_ocr),
+                default=st.session_state.get(key_ms_ocr, opts_ocr),
                 label_visibility='hidden',
                 key=key_ms_ocr
             )
+
+    # === Máscaras case-insensitive usando colunas normalizadas ===
+    sel_cli_norm = _sel_norm(K('filtros_clientes'))
+    sel_ug_norm  = _sel_norm(K('filtros_ugs'))
+    sel_tip_norm = _sel_norm(K('filtros_tipos'))
+    sel_atv_norm = _sel_norm(K('filtros_ativos'))
+    sel_ocr_norm = _sel_norm(K('filtros_ocorrencias'))
+
+    m_cli = df['__CLI_NORM__'].isin(sel_cli_norm) if sel_cli_norm else df['__CLI_NORM__'].notna()
+    m_ug  = df['__UG_NORM__'].isin(sel_ug_norm)   if sel_ug_norm  else df['__UG_NORM__'].notna()
+    m_tip = df['__TIPO_NORM__'].isin(sel_tip_norm)if sel_tip_norm else df['__TIPO_NORM__'].notna()
+    m_atv = df['__ATV_NORM__'].isin(sel_atv_norm) if sel_atv_norm else df['__ATV_NORM__'].notna()
+    m_ocr = df['__OCR_NORM__'].isin(sel_ocr_norm) if sel_ocr_norm else df['__OCR_NORM__'].notna()
+
 
 
     # --- Aplicação dos filtros + RESOLVIDAS ---
@@ -604,6 +664,21 @@ if not df.empty:
     m_ano = s_ano.isin(anos_sel)  if anos_sel  else s_ano.notna()
     m_mes = s_mes.isin(meses_sel) if meses_sel else s_mes.notna()
     m_dia = s_dia.isin(dias_sel)  if dias_sel  else s_dia.notna()
+
+    # Conjuntos e detecção de "tudo selecionado"
+    set_anos  = set(anos_disponiveis)
+    set_meses = set(meses_cronologicos)
+    set_dias  = set(dias_disponiveis)
+
+    all_anos  = set(anos_sel)  == set_anos  and len(set_anos)  > 0
+    all_meses = set(meses_sel) == set_meses and len(set_meses) > 0
+    all_dias  = set(dias_sel)  == set_dias  and len(set_dias)  > 0
+
+    s_ano, s_mes, s_dia = df['Ano'], df['Mês'], df['Dia']
+    m_ano = s_ano.isin(anos_sel)  if not all_anos  else (s_ano.isin(anos_sel)  | s_ano.isna() | (s_ano == 0))
+    m_mes = s_mes.isin(meses_sel) if not all_meses else (s_mes.isin(meses_sel) | s_mes.isna() | (s_mes.astype(str) == ''))
+    m_dia = s_dia.isin(dias_sel)  if not all_dias  else (s_dia.isin(dias_sel)  | s_dia.isna() | (s_dia == 0))
+
 
     m_cli = df['Cliente'].isin(st.session_state.get(K('filtros_clientes'), []))
     m_ug  = df['UG'].isin(st.session_state.get(K('filtros_ugs'), []))
