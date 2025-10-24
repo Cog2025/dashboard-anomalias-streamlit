@@ -285,6 +285,14 @@ def _sanitize_default(default_list, valid_options):
             result.append(x)
     return result
 
+# === Helpers (sanitização e sincronização) ===
+# Sincroniza o estado do widget (key_ms) e o estado de modelo (key_modelo)
+def _sync_ms(key_ms: str, key_modelo: str, valores: list):
+    st.session_state[key_modelo] = list(valores)
+    st.session_state[key_ms] = list(valores)
+
+# Marcação em massa de checkboxes (já existente abaixo): _marcar(...)
+
 
 # Helper para marcar/desmarcar checkboxes em massa
 def _marcar(prefixo_key: str, itens: list, filtro_key: str, marcar_todos: bool, validos: set | None = None):
@@ -434,22 +442,29 @@ if not df.empty:
     with col_cliente:
         with st.container(border=True):
             st.write("Cliente:")
-            c = st.columns(2)
-            if c[0].button('Sel. Todos', key=f'sel_cli_{PAGE_ID}', use_container_width=True):
-                st.session_state[K('filtros_clientes')] = sorted(df['Cliente'].unique().tolist()); st.rerun()
-            if c[1].button('Desmarcar', key=f'des_cli_{PAGE_ID}', use_container_width=True):
-                st.session_state[K('filtros_clientes')] = []; st.rerun()
-
             options_clientes = sorted(df['Cliente'].unique().tolist())
             default_clientes = _sanitize_default(st.session_state.get(K('filtros_clientes'), []), options_clientes)
             st.session_state[K('filtros_clientes')] = default_clientes
 
+            key_ms_cli = f'ms_clientes_{PAGE_ID}'
+            if key_ms_cli not in st.session_state:
+                st.session_state[key_ms_cli] = st.session_state[K('filtros_clientes')]
+
+            c = st.columns(2)
+            if c[0].button('Sel. Todos', key=f'sel_cli_{PAGE_ID}', use_container_width=True):
+                _sync_ms(key_ms_cli, K('filtros_clientes'), options_clientes)
+                st.rerun()
+            if c[1].button('Desmarcar', key=f'des_cli_{PAGE_ID}', use_container_width=True):
+                _sync_ms(key_ms_cli, K('filtros_clientes'), [])
+                st.rerun()
+
             st.session_state[K('filtros_clientes')] = st.multiselect(
                 ' ', options=options_clientes,
-                default=st.session_state[K('filtros_clientes')],
+                default=st.session_state.get(key_ms_cli, default_clientes),
                 label_visibility='hidden',
-                key=f'ms_clientes_{PAGE_ID}'
+                key=key_ms_cli
             )
+
 
 
     with col_ug:
@@ -461,91 +476,114 @@ if not df.empty:
             default_ugs = _sanitize_default(st.session_state.get(K('filtros_ugs'), []), ugs_disp)
             st.session_state[K('filtros_ugs')] = default_ugs
 
+            key_ms_ug = f'ms_ugs_{PAGE_ID}'
+            if key_ms_ug not in st.session_state:
+                st.session_state[key_ms_ug] = st.session_state[K('filtros_ugs')]
+
             c = st.columns(2)
             if c[0].button('Sel. Todos', key=f'sel_ug_{PAGE_ID}', use_container_width=True):
-                st.session_state[K('filtros_ugs')] = ugs_disp; st.rerun()
+                _sync_ms(key_ms_ug, K('filtros_ugs'), ugs_disp)
+                st.rerun()
             if c[1].button('Desmarcar', key=f'des_ug_{PAGE_ID}', use_container_width=True):
-                st.session_state[K('filtros_ugs')] = []; st.rerun()
+                _sync_ms(key_ms_ug, K('filtros_ugs'), [])
+                st.rerun()
 
             st.session_state[K('filtros_ugs')] = st.multiselect(
                 ' ', options=ugs_disp,
-                default=st.session_state[K('filtros_ugs')],
+                default=st.session_state.get(key_ms_ug, default_ugs),
                 label_visibility='hidden',
-                key=f'ms_ugs_{PAGE_ID}'
+                key=key_ms_ug
             )
+
 
 
     with col_tipo:
         with st.container(border=True):
             st.write("Tipo de Ocorrência:")
 
-            c = st.columns(2)
-            if c[0].button('Sel. Todos', key=f'sel_tipo_{PAGE_ID}', use_container_width=True):
-                st.session_state[K('filtros_tipos')] = sorted(df['Tipo de ocorrência'].unique().tolist())
-                st.rerun()
-            if c[1].button('Desmarcar', key=f'des_tipo_{PAGE_ID}', use_container_width=True):
-                st.session_state[K('filtros_tipos')] = []
-                st.rerun()
-
+            # Opções e default sanitizado
             opts_tipos = sorted(df['Tipo de ocorrência'].unique().tolist())
             default_tipos = _sanitize_default(st.session_state.get(K('filtros_tipos'), []), opts_tipos)
             st.session_state[K('filtros_tipos')] = default_tipos
 
+            # Key do widget do multiselect (estado do componente)
+            key_ms_tipos = f'ms_tipos_{PAGE_ID}'
+            if key_ms_tipos not in st.session_state:
+                st.session_state[key_ms_tipos] = st.session_state[K('filtros_tipos')]
+
+            # Botões de seleção/limpeza sincronizando UI + modelo
+            c = st.columns(2)
+            if c[0].button('Sel. Todos', key=f'sel_tipo_{PAGE_ID}', use_container_width=True):
+                _sync_ms(key_ms_tipos, K('filtros_tipos'), opts_tipos)
+                st.rerun()
+            if c[1].button('Desmarcar', key=f'des_tipo_{PAGE_ID}', use_container_width=True):
+                _sync_ms(key_ms_tipos, K('filtros_tipos'), [])
+                st.rerun()
+
+            # Multiselect lê o estado do widget (key_ms_tipos)
             st.session_state[K('filtros_tipos')] = st.multiselect(
-                ' ',
-                options=opts_tipos,
-                default=st.session_state[K('filtros_tipos')],
+                ' ', options=opts_tipos,
+                default=st.session_state.get(key_ms_tipos, default_tipos),
                 label_visibility='hidden',
-                key=f'ms_tipos_{PAGE_ID}'
+                key=key_ms_tipos
             )
+
 
     with col_ativo:
         with st.container(border=True):
             st.write("Ativo:")
 
-            c = st.columns(2)
-            if c[0].button('Sel. Todos', key=f'sel_ativo_{PAGE_ID}', use_container_width=True):
-                st.session_state[K('filtros_ativos')] = sorted(df['Ativo'].unique().tolist())
-                st.rerun()
-            if c[1].button('Desmarcar', key=f'des_ativo_{PAGE_ID}', use_container_width=True):
-                st.session_state[K('filtros_ativos')] = []
-                st.rerun()
-
             opts_ativos = sorted(df['Ativo'].unique().tolist())
             default_ativos = _sanitize_default(st.session_state.get(K('filtros_ativos'), []), opts_ativos)
             st.session_state[K('filtros_ativos')] = default_ativos
 
+            key_ms_ativos = f'ms_ativos_{PAGE_ID}'
+            if key_ms_ativos not in st.session_state:
+                st.session_state[key_ms_ativos] = st.session_state[K('filtros_ativos')]
+
+            c = st.columns(2)
+            if c[0].button('Sel. Todos', key=f'sel_ativo_{PAGE_ID}', use_container_width=True):
+                _sync_ms(key_ms_ativos, K('filtros_ativos'), opts_ativos)
+                st.rerun()
+            if c[1].button('Desmarcar', key=f'des_ativo_{PAGE_ID}', use_container_width=True):
+                _sync_ms(key_ms_ativos, K('filtros_ativos'), [])
+                st.rerun()
+
             st.session_state[K('filtros_ativos')] = st.multiselect(
-                ' ',
-                options=opts_ativos,
-                default=st.session_state[K('filtros_ativos')],
+                ' ', options=opts_ativos,
+                default=st.session_state.get(key_ms_ativos, default_ativos),
                 label_visibility='hidden',
-                key=f'ms_ativos_{PAGE_ID}'
+                key=key_ms_ativos
             )
+
 
     with col_ocr:
         with st.container(border=True):
             st.write("Ocorrência:")
 
-            c = st.columns(2)
-            if c[0].button('Sel. Todos', key=f'sel_ocr_{PAGE_ID}', use_container_width=True):
-                st.session_state[K('filtros_ocorrencias')] = sorted(df['Ocorrência'].unique().tolist())
-                st.rerun()
-            if c[1].button('Desmarcar', key=f'des_ocr_{PAGE_ID}', use_container_width=True):
-                st.session_state[K('filtros_ocorrencias')] = []
-                st.rerun()
-
             opts_ocr = sorted(df['Ocorrência'].unique().tolist())
             default_ocr = _sanitize_default(st.session_state.get(K('filtros_ocorrencias'), []), opts_ocr)
             st.session_state[K('filtros_ocorrencias')] = default_ocr
 
+            key_ms_ocr = f'ms_ocorrencias_{PAGE_ID}'
+            if key_ms_ocr not in st.session_state:
+                st.session_state[key_ms_ocr] = st.session_state[K('filtros_ocorrencias')]
+
+            c = st.columns(2)
+            if c[0].button('Sel. Todos', key=f'sel_ocr_{PAGE_ID}', use_container_width=True):
+                _sync_ms(key_ms_ocr, K('filtros_ocorrencias'), opts_ocr)
+                st.rerun()
+            if c[1].button('Desmarcar', key=f'des_ocr_{PAGE_ID}', use_container_width=True):
+                _sync_ms(key_ms_ocr, K('filtros_ocorrencias'), [])
+                st.rerun()
+
             st.session_state[K('filtros_ocorrencias')] = st.multiselect(
-                ' ',
-                options=opts_ocr,
-                default=st.session_state[K('filtros_ocorrencias')],
+                ' ', options=opts_ocr,
+                default=st.session_state.get(key_ms_ocr, default_ocr),
                 label_visibility='hidden',
-                key=f'ms_ocorrencias_{PAGE_ID}'
+                key=key_ms_ocr
             )
+
 
     # --- Aplicação dos filtros + RESOLVIDAS ---
     anos_sel  = st.session_state.get(K('filtros_anos'), [])
