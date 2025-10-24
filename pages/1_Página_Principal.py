@@ -10,9 +10,41 @@ import gspread
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import get_as_dataframe
 
+PAGE_ID = "p1"  # na 1_Pagina_Principal.py; use "p4" na 4_Ocorrencias_Resolvidas.py
+def K(name: str) -> str:
+    return f"{PAGE_ID}:{name}"
+
 
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
+
+
+# === Overlay de carregamento (logo após st.set_page_config) ===
+if 'loading' not in st.session_state:
+    st.session_state.loading = True
+
+def render_loading_overlay():
+    display = 'flex' if st.session_state.get('loading', False) else 'none'
+    st.markdown(f"""
+    <style>
+      #__overlay__ {{
+        position: fixed; inset: 0; background: rgba(0,0,0,.55);
+        display: {display}; align-items: center; justify-content: center;
+        z-index: 10000;
+      }}
+      .loader {{
+        width: 64px; height: 64px; border-radius: 50%;
+        border: 6px solid rgba(255,255,255,.25);
+        border-top-color: #FF4B4B;
+        animation: spin 1s linear infinite;
+      }}
+      @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+    </style>
+    <div id="__overlay__"><div class="loader"></div></div>
+    """, unsafe_allow_html=True)
+
+render_loading_overlay()
+
 
 
 # --- 2. Dicionário para tradução dos meses ---
@@ -176,6 +208,7 @@ def carregar_dados_google_sheets(cache_buster: int = 0):
         df_todos_dados = pd.concat([df_desligamentos, df_equipamentos], ignore_index=True)
 
 
+
         mapa_renomear = {
             'IDENTIFICADOR': 'Identificador', 'CLIENTE': 'Cliente', 'UG': 'UG', 'TIPO DE OCORRÊNCIA': 'Tipo de ocorrência',
             'ATIVO': 'Ativo', 'NOME ATIVO': 'Nome Ativo', 'OCORRÊNCIA': 'Ocorrência',
@@ -252,13 +285,18 @@ def carregar_dados_google_sheets(cache_buster: int = 0):
 
 
 if 'cache_buster' not in st.session_state:
-    st.session_state.cache_buster = int(time())  # novo valor a cada reload da página
+    st.session_state.cache_buster = int(time())
 
 df_todos_dados = carregar_dados_google_sheets(st.session_state.cache_buster)
 
 if df_todos_dados is None or df_todos_dados.empty:
     st.warning("Não há dados carregados para montar os filtros.")
     st.stop()
+
+# Dados carregados e validados: desligar overlay e rerender
+if st.session_state.get('loading', False):
+    st.session_state.loading = False
+    st.rerun()
 
 
 # Garante que a coluna de data/hora está no formato correto
@@ -350,9 +388,12 @@ with col_kpi1:
 col_top_left, col_top_right = st.columns([0.2, 0.8])
 with col_top_left:
     if st.button('Atualizar Dados'):
+        st.session_state.loading = True
         st.session_state.cache_buster = int(time())
         st.cache_data.clear()
         st.rerun()
+
+
 
 
 # --- 8. Interface de Filtros ---
@@ -371,14 +412,30 @@ if not df_todos_dados.empty:
         st.session_state['categoria_top'] = 'Ambas'   # inicializa só uma vez
 
     st.markdown("#### Filtrar por categoria (planilha)")
+
+    # Categoria global (persistente entre páginas)
+    CAT_KEY = 'categoria_top_global'
+    if CAT_KEY not in st.session_state:
+        st.session_state[CAT_KEY] = 'Ambas'
+
+    st.markdown("#### Filtrar por categoria (planilha)")
     st.radio(
         "Categoria:",
         options=["Ambas", "DESLIGAMENTOS", "EQUIPAMENTOS"],
         horizontal=True,
         label_visibility="collapsed",
-        key="categoria_top"   # sem index
+        key=CAT_KEY
     )
 
+    # Máscara de categoria usando df_todos_dados
+    cat_sel = st.session_state[CAT_KEY]
+    m_cat_base = df_todos_dados['Categoria'].isin(
+        st.session_state.get(K('filtros_categorias'), df_todos_dados['Categoria'].unique().tolist())
+    )
+    m_cat = (df_todos_dados['Categoria'] == cat_sel) if cat_sel in ("DESLIGAMENTOS", "EQUIPAMENTOS") else m_cat_base
+
+
+        
     st.subheader("Selecione o período desejado")
     # imediatamente após st.subheader("Selecione o período desejado")
     anos_disponiveis = sorted([a for a in df_todos_dados['Ano'].unique() if a != 0])
@@ -447,27 +504,30 @@ if not df_todos_dados.empty:
     with col_cliente:
         with st.container(border=True):
             st.write("Cliente:")
+
             col_b = st.columns(2)
             with col_b[0]:
-                if st.button('Sel. Todos', key='sel_cli', use_container_width=True):
-                    st.session_state.filtros_clientes = sorted(df_todos_dados['Cliente'].unique().tolist())
+                if st.button('Sel. Todos', key=f'sel_cli_{PAGE_ID}', use_container_width=True):
+                    st.session_state[K('filtros_clientes')] = sorted(df_todos_dados['Cliente'].unique().tolist())
                     st.rerun()
             with col_b[1]:
-                if st.button('Desmarcar', key='des_cli', use_container_width=True):
-                    st.session_state.filtros_clientes = []
+                if st.button('Desmarcar', key=f'des_cli_{PAGE_ID}', use_container_width=True):
+                    st.session_state[K('filtros_clientes')] = []
                     st.rerun()
 
             options_clientes = sorted(df_todos_dados['Cliente'].unique().tolist())
-            default_clientes = _sanitize_default(st.session_state.get('filtros_clientes', []), options_clientes)
-            st.session_state.filtros_clientes = default_clientes
+            default_clientes = _sanitize_default(st.session_state.get(K('filtros_clientes'), []), options_clientes)
+            st.session_state[K('filtros_clientes')] = default_clientes
 
-            st.session_state.filtros_clientes = st.multiselect(
+            st.session_state[K('filtros_clientes')] = st.multiselect(
                 ' ',
                 options=options_clientes,
-                default=default_clientes,
+                default=st.session_state[K('filtros_clientes')],
                 label_visibility='hidden',
-                key='ms_clientes'  # NOVO
+                key=f'ms_clientes_{PAGE_ID}'
             )
+
+
 
 
 
@@ -475,34 +535,34 @@ if not df_todos_dados.empty:
         with st.container(border=True):
             st.write("UG:")
 
-            # Sempre derive df_temp do Cliente selecionado
-            clientes_sel = st.session_state.get('filtros_clientes', [])
+            clientes_sel = st.session_state.get(K('filtros_clientes'), [])
             if not isinstance(clientes_sel, list):
                 clientes_sel = [clientes_sel] if clientes_sel is not None else []
 
             df_temp = df_todos_dados[df_todos_dados['Cliente'].isin(clientes_sel)]
             ugs_disponiveis = sorted(df_temp['UG'].unique().tolist())
 
-            default_ugs = _sanitize_default(st.session_state.get('filtros_ugs', []), ugs_disponiveis)
-            st.session_state.filtros_ugs = default_ugs
+            default_ugs = _sanitize_default(st.session_state.get(K('filtros_ugs'), []), ugs_disponiveis)
+            st.session_state[K('filtros_ugs')] = default_ugs
 
             col_b = st.columns(2)
             with col_b[0]:
-                if st.button('Sel. Todos', key='sel_ug', use_container_width=True):
-                    st.session_state.filtros_ugs = ugs_disponiveis
+                if st.button('Sel. Todos', key=f'sel_ug_{PAGE_ID}', use_container_width=True):
+                    st.session_state[K('filtros_ugs')] = ugs_disponiveis
                     st.rerun()
             with col_b[1]:
-                if st.button('Desmarcar', key='des_ug', use_container_width=True):
-                    st.session_state.filtros_ugs = []
+                if st.button('Desmarcar', key=f'des_ug_{PAGE_ID}', use_container_width=True):
+                    st.session_state[K('filtros_ugs')] = []
                     st.rerun()
 
-            st.session_state.filtros_ugs = st.multiselect(
+            st.session_state[K('filtros_ugs')] = st.multiselect(
                 ' ',
                 options=ugs_disponiveis,
-                default=st.session_state.filtros_ugs,
+                default=st.session_state[K('filtros_ugs')],
                 label_visibility='hidden',
-                key='ms_ugs'  # NOVO
+                key=f'ms_ugs_{PAGE_ID}'
             )
+
 
 
 
@@ -522,15 +582,11 @@ if not df_todos_dados.empty:
                     st.rerun()
 
             options_tipos = sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist())
-            default_tipos = _sanitize_default(st.session_state.get('filtros_tipos', []), options_tipos)
-            st.session_state.filtros_tipos = default_tipos
-
-            st.session_state.filtros_tipos = st.multiselect(
-                ' ',
-                options=options_tipos,
-                default=default_tipos,
-                label_visibility='hidden',
-                key='ms_tipos'
+            default_tipos = _sanitize_default(st.session_state.get(K('filtros_tipos'), []), options_tipos)
+            st.session_state[K('filtros_tipos')] = default_tipos
+            st.session_state[K('filtros_tipos')] = st.multiselect(
+                ' ', options=options_tipos, default=default_tipos, label_visibility='hidden',
+                key=f'ms_tipos_{PAGE_ID}'
             )
 
 
@@ -550,15 +606,11 @@ if not df_todos_dados.empty:
                     st.rerun()
 
             options_ativos = sorted(df_todos_dados['Ativo'].unique().tolist())
-            default_ativos = _sanitize_default(st.session_state.get('filtros_ativos', []), options_ativos)
-            st.session_state.filtros_ativos = default_ativos
-
-            st.session_state.filtros_ativos = st.multiselect(
-                ' ',
-                options=options_ativos,
-                default=default_ativos,
-                label_visibility='hidden',
-                key='ms_ativos'
+            default_ativos = _sanitize_default(st.session_state.get(K('filtros_ativos'), []), options_ativos)
+            st.session_state[K('filtros_ativos')] = default_ativos
+            st.session_state[K('filtros_ativos')] = st.multiselect(
+                ' ', options=options_ativos, default=default_ativos, label_visibility='hidden',
+                key=f'ms_ativos_{PAGE_ID}'
             )
 
 
@@ -578,15 +630,11 @@ if not df_todos_dados.empty:
                     st.rerun()
 
             options_ocorr = sorted(df_todos_dados['Ocorrência'].unique().tolist())
-            default_ocorr = _sanitize_default(st.session_state.get('filtros_ocorrencias', []), options_ocorr)
-            st.session_state.filtros_ocorrencias = default_ocorr
-
-            st.session_state.filtros_ocorrencias = st.multiselect(
-                ' ',
-                options=options_ocorr,
-                default=default_ocorr,
-                label_visibility='hidden',
-                key='ms_ocorrencias'
+            default_ocorr = _sanitize_default(st.session_state.get(K('filtros_ocorrencias'), []), options_ocorr)
+            st.session_state[K('filtros_ocorrencias')] = default_ocorr
+            st.session_state[K('filtros_ocorrencias')] = st.multiselect(
+                ' ', options=options_ocorr, default=default_ocorr, label_visibility='hidden',
+                key=f'ms_ocorrencias_{PAGE_ID}'
             )
 
 
@@ -624,11 +672,12 @@ if not df_todos_dados.empty:
     if st.session_state.get("categoria_top") in ("DESLIGAMENTOS", "EQUIPAMENTOS"):
         m_cat = m_cat & (df_todos_dados['Categoria'] == st.session_state["categoria_top"])
 
-    m_cli = df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)
-    m_ug  = df_todos_dados['UG'].isin(st.session_state.filtros_ugs)
-    m_tip = df_todos_dados['Tipo de ocorrência'].isin(st.session_state.filtros_tipos)
-    m_atv = df_todos_dados['Ativo'].isin(st.session_state.filtros_ativos)
-    m_ocr = df_todos_dados['Ocorrência'].isin(st.session_state.filtros_ocorrencias)
+    m_cli = df_todos_dados['Cliente'].isin(st.session_state.get(K('filtros_clientes'), []))
+    m_ug  = df_todos_dados['UG'].isin(st.session_state.get(K('filtros_ugs'), []))
+    m_tip = df_todos_dados['Tipo de ocorrência'].isin(st.session_state.get(K('filtros_tipos'), []))
+    m_atv = df_todos_dados['Ativo'].isin(st.session_state.get(K('filtros_ativos'), []))
+    m_ocr = df_todos_dados['Ocorrência'].isin(st.session_state.get(K('filtros_ocorrencias'), []))
+
 
     df_filtrado = df_todos_dados[m_ano & m_mes & m_dia & m_cat & m_cli & m_ug & m_tip & m_atv & m_ocr].copy()
     df_desligadas = df_filtrado[pd.isna(df_filtrado['Normalização']) | (df_filtrado['Normalização'] == '')].copy()
