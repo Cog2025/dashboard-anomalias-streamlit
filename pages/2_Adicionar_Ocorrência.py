@@ -8,54 +8,8 @@ import gspread
 from google.oauth2.service_account import Credentials
 import re
 
-PAGE_ID = "p2"  # na 1_Pagina_Principal.py; use "p4" na 4_Ocorrencias_Resolvidas.py
-def K(name: str) -> str:
-    return f"{PAGE_ID}:{name}"
-
-
 # --- 1. CONFIGURAÇÃO DA PÁGINA E CSS ---
 st.set_page_config(layout="wide")
-
-if 'ui_phase' not in st.session_state:
-    st.session_state.ui_phase = 'init'
-if 'loading_ts' not in st.session_state:
-    st.session_state.loading_ts = 0
-
-def render_loading_overlay():
-    display = 'flex' if st.session_state.get('ui_phase') == 'loading' else 'none'
-    st.markdown(f"""
-    <style>
-      #__overlay__ {{
-        position: fixed; inset: 0; background: rgba(0,0,0,.55);
-        display: {display}; align-items: center; justify-content: center;
-        z-index: 10000;
-      }}
-      .loader {{
-        width: 64px; height: 64px; border-radius: 50%;
-        border: 6px solid rgba(255,255,255,.25);
-        border-top-color: #FF4B4B;
-        animation: spin 1s linear infinite;
-      }}
-      @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
-    </style>
-    <div id="__overlay__"><div class="loader"></div></div>
-    """, unsafe_allow_html=True)
-
-def start_loading():
-    st.session_state.ui_phase = 'loading'
-    st.session_state.loading_ts = time()
-    st.experimental_rerun()
-
-def stop_loading():
-    st.session_state.ui_phase = 'ready'
-    st.session_state.loading_ts = 0
-    st.experimental_rerun()
-
-render_loading_overlay()
-if st.session_state.ui_phase == 'init':
-    start_loading()
-
-
 st.title("Adicionar Nova Ocorrência")
 st.markdown("""
 <style>
@@ -145,9 +99,6 @@ def carregar_dados_e_opcoes():
                  'Operador': op_operador }
     except Exception as e:
         st.error(f"Erro ao carregar os dados das planilhas: {e}"); return {}
-
-if st.session_state.ui_phase == 'loading':
-    stop_loading()
 
 # --- 3. INTERFACE DO STREAMLIT ---
 dados_e_opcoes = carregar_dados_e_opcoes()
