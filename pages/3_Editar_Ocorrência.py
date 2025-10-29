@@ -229,7 +229,40 @@ try:
                 _stop_with_overlay_off("Nenhuma ocorrência selecionada para edição.")
 
         else:
-            _stop_with_overlay_off("Não há lista para seleção nesta página. Acesse pela página principal.", kind="info")
+            # Fallback: carregar todos os dados e permitir seleção
+            df_full = carregar_dados_completos()
+            if df_full.empty:
+                _stop_with_overlay_off("Falha ao carregar dados para montar a lista de edição.", kind="error")
+
+            # Gera coluna Display (similar ao fluxo da lista vinda da principal)
+            df_tmp = df_full.copy()
+            if 'Desligamento' in df_tmp.columns and not pd.api.types.is_datetime64_any_dtype(df_tmp['Desligamento']):
+                df_tmp['Desligamento'] = pd.to_datetime(df_tmp['Desligamento'], errors='coerce')
+            disp_data = df_tmp['Desligamento'].dt.strftime('%d/%m/%Y %H:%M').fillna('') if 'Desligamento' in df_tmp.columns else ''
+            df_full['Display'] = (
+                df_full.get('UG','').astype(str) + " | " +
+                df_full.get('Ativo','').astype(str) + " | " +
+                df_full.get('Nome Ativo','').astype(str) + " | " +
+                df_full.get('Ocorrência','').astype(str) + " | " + disp_data.astype(str)
+            )
+
+            st.subheader("Selecione a ocorrência para editar")
+            options = df_full['Display'].tolist()
+            occ_disp = st.selectbox(
+                "Ocorrências",
+                options=options,
+                index=None,
+                placeholder="Escolha uma ocorrência..."
+            )
+            if occ_disp:
+                sel = df_full.loc[df_full['Display'] == occ_disp].iloc[0]
+                st.session_state['id_unico_para_editar'] = sel['ID_Unico']
+                overlay_off()
+                st.rerun()
+            else:
+                overlay_off()
+                st.info("Escolha uma ocorrência para prosseguir.")
+                st.stop()
 
     # Fluxo 2: já existe um ID selecionado
     id_para_editar = st.session_state['id_unico_para_editar']

@@ -176,12 +176,7 @@ try:
     if not dados_e_opcoes:
         _stop_with_overlay_off("Não foi possível carregar os dados desta página.", kind="error")
 
-    # 3) garantir que 'categoria' existe antes de validar
-    categoria = st.session_state.get('categoria') or dados_e_opcoes.get('categoria')
-    if not categoria:
-        _stop_with_overlay_off("Selecione uma categoria para continuar.")
 
-    # 4) depois, prossiga
     df_dados = dados_e_opcoes.get('df_dados', pd.DataFrame())
     df_detalhado = dados_e_opcoes.get('df_detalhado', pd.DataFrame())
 
@@ -247,6 +242,15 @@ try:
         index=None,
         placeholder="Selecione a categoria..."
     )
+    
+    # GUARDA correta: só aqui depois do selectbox
+    if not categoria_selecionada:
+        overlay_off()
+        st.warning("Selecione uma categoria para continuar.")
+        st.stop()
+
+    # Opcional: persistir no estado para outras páginas
+    st.session_state['categoria'] = categoria_selecionada
 
     st.subheader("Informações Gerais")
     col1, col2 = st.columns(2)
@@ -492,3 +496,4 @@ finally:
     # Garante desligamento do overlay em sucesso/erro/parada
     overlay_off()
 
+categoria_selecionada = st.selectbox(
