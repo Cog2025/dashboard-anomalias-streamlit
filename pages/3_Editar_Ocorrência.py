@@ -12,7 +12,7 @@ from gspread_dataframe import get_as_dataframe
 st.set_page_config(layout="wide")
 
 if 'ui_phase' not in st.session_state:
-    st.session_state.ui_phase = 'init'
+    st.session_state.ui_phase = 'ready'
 if 'loading_ts' not in st.session_state:
     st.session_state.loading_ts = 0
 
@@ -21,21 +21,52 @@ def render_loading_overlay(ui_phase: str | None = None):
     display = 'flex' if phase == 'loading' else 'none'
     st.markdown(f"""
     <style>
-    #__overlay__ {{
-        position: fixed; inset: 0; background: rgba(0,0,0,.55);
-        display: {display}; align-items: center; justify-content: center;
+      #__overlay__ {{
+        position: fixed; inset: 0; 
+        display: {display}; 
+        align-items: center; justify-content: center;
         z-index: 10000;
-    }}
-    .loader {{
+
+        /* começa transparente; só escurece após 250 ms */
+        background: rgba(0,0,0,0);
+        animation: bgIn 0s linear 0.25s forwards;
+      }}
+
+      .loader {{
         width: 64px; height: 64px; border-radius: 50%;
         border: 6px solid rgba(255,255,255,.25);
         border-top-color: #FF4B4B;
-        animation: spin 1s linear infinite;
-    }}
-    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+        animation: spin 1s linear infinite, appear 0s linear 0.25s forwards;
+        opacity: 0; /* só fica visível após 250 ms */
+      }}
+
+      @keyframes appear {{ to {{ opacity: 1; }} }}
+      @keyframes bgIn {{ to {{ background: rgba(0,0,0,.55); }} }}
+      @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
     </style>
     <div id="__overlay__"><div class="loader"></div></div>
     """, unsafe_allow_html=True)
+
+render_loading_overlay('loading')
+
+def overlay_on():
+    st.session_state.ui_phase = 'loading'
+    st.session_state.loading_ts = pytime.time()
+    render_loading_overlay('loading')
+
+def overlay_off():
+    st.session_state.ui_phase = 'ready'
+    st.session_state.loading_ts = 0
+    render_loading_overlay('ready')
+
+# LIGA overlay no início DE CADA EXECUÇÃO
+overlay_on()
+try:
+    # ====== a partir daqui, carregue dados/páginas normalmente ======
+    pass
+finally:
+    # DESLIGA overlay em QUALQUER situação (sucesso/erro/retorno)
+    overlay_off()
 
 
 render_loading_overlay(st.session_state.ui_phase)
@@ -198,22 +229,36 @@ if ('id_unico_para_editar' not in st.session_state or not st.session_state['id_u
             use_container_width=True
         )
 
-        options = df_lista['Display'].tolist()
+        # 1) Montar as opções a partir de df_lista
+        render_loading_overlay('loading')
+        # Garante que df_lista tem as colunas necessárias
+        if not {'Display','ID_Unico'}.issubset(df_lista.columns):
+            overlay_off()
+            st.error("Lista de ocorrências inválida (faltam colunas Display/ID_Unico).")
+            st.stop()
+
+        options = df_lista['Display'].tolist() if 'Display' in df_lista.columns else []
         occ_disp = st.selectbox(
             "Selecione a ocorrência para editar:",
-            options=(df_lista['Display'].tolist() if 'Display' in df_lista.columns else []),
+            options=options,
             index=None,
             placeholder="Escolha uma ocorrência..."
-            )
+        )
+        # 2) Se o usuário escolheu algo, salvar o ID no session_state e rerodar
         if occ_disp:
-            sel = df_lista[df_lista['Display'] == occ_disp].iloc[0]
+            sel = df_lista.loc[df_lista['Display'] == occ_disp].iloc[0]
             st.session_state['id_unico_para_editar'] = sel['ID_Unico']
             st.rerun()
-    else:
-        st.warning("Nenhuma ocorrência selecionada para edição.")
-        st.page_link("pages/1_Página_Principal.py", label="Voltar para a Página Principal", icon="🏠")
-        st.stop()
-# --- FIM: mantém o restante do fluxo igual ---
+
+        # 3) Calcular id_selecionado a partir do session_state
+        id_selecionado = st.session_state.get('id_unico_para_editar')
+
+        # 4) Se ainda não há seleção, desligar overlay e parar
+        if not id_selecionado:
+            overlay_off()
+            st.warning("Nenhuma ocorrência selecionada para edição.")
+            st.page_link("pages/1_Página_Principal.py", label="Voltar para a Página Principal", icon="🏠")
+            st.stop()
 
 else:
     id_para_editar = st.session_state['id_unico_para_editar']
