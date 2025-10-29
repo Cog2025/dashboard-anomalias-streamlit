@@ -21,14 +21,13 @@ if 'loading_ts' not in st.session_state:
 def render_loading_overlay(ui_phase: str | None = None):
     phase = ui_phase or st.session_state.get('ui_phase', 'ready')
     display = 'flex' if phase == 'loading' else 'none'
-    st.markdown(f"""
+    css = """
     <style>
       #__overlay__ {{
         position: fixed; inset: 0;
-        display: {display};
+        display: __DISPLAY__;
         align-items: center; justify-content: center;
         z-index: 10000;
-        /* começa transparente; só escurece após 250 ms */
         background: rgba(0,0,0,0);
         animation: bgIn 0s linear 0.25s forwards;
       }}
@@ -37,14 +36,16 @@ def render_loading_overlay(ui_phase: str | None = None):
         border: 6px solid rgba(255,255,255,.25);
         border-top-color: #FF4B4B;
         animation: spin 1s linear infinite, appear 0s linear 0.25s forwards;
-        opacity: 0; /* só fica visível após 250 ms */
+        opacity: 0;
       }}
       @keyframes appear {{ to {{ opacity: 1; }} }}
       @keyframes bgIn {{ to {{ background: rgba(0,0,0,.55); }} }}
       @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
     </style>
     <div id="__overlay__"><div class="loader"></div></div>
-    """, unsafe_allow_html=True)
+    """.replace("__DISPLAY__", display)
+    st.markdown(css, unsafe_allow_html=True)
+
 
 def overlay_on():
     st.session_state.ui_phase = 'loading'
@@ -176,7 +177,12 @@ try:
     if not dados_e_opcoes:
         _stop_with_overlay_off("Não foi possível carregar os dados desta página.", kind="error")
 
+    # 3) garantir que 'categoria' existe antes de validar
+    categoria = st.session_state.get('categoria') or dados_e_opcoes.get('categoria')
+    if not categoria:
+        _stop_with_overlay_off("Selecione uma categoria para continuar.")
 
+    # 4) depois, prossiga
     df_dados = dados_e_opcoes.get('df_dados', pd.DataFrame())
     df_detalhado = dados_e_opcoes.get('df_detalhado', pd.DataFrame())
 
@@ -242,15 +248,6 @@ try:
         index=None,
         placeholder="Selecione a categoria..."
     )
-    
-    # GUARDA correta: só aqui depois do selectbox
-    if not categoria_selecionada:
-        overlay_off()
-        st.warning("Selecione uma categoria para continuar.")
-        st.stop()
-
-    # Opcional: persistir no estado para outras páginas
-    st.session_state['categoria'] = categoria_selecionada
 
     st.subheader("Informações Gerais")
     col1, col2 = st.columns(2)
@@ -495,5 +492,3 @@ try:
 finally:
     # Garante desligamento do overlay em sucesso/erro/parada
     overlay_off()
-
-categoria_selecionada = st.selectbox(
