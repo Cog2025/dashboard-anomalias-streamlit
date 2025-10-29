@@ -9,10 +9,10 @@ import gspread
 from google.oauth2.service_account import Credentials
 import re
 
-
 # --- 1. CONFIGURAÇÃO DA PÁGINA E CSS ---
 st.set_page_config(layout="wide")
 
+# Estado mínimo para o overlay
 if 'ui_phase' not in st.session_state:
     st.session_state.ui_phase = 'ready'
 if 'loading_ts' not in st.session_state:
@@ -24,16 +24,14 @@ def render_loading_overlay(ui_phase: str | None = None):
     st.markdown(f"""
     <style>
       #__overlay__ {{
-        position: fixed; inset: 0; 
-        display: {display}; 
+        position: fixed; inset: 0;
+        display: {display};
         align-items: center; justify-content: center;
         z-index: 10000;
-
         /* começa transparente; só escurece após 250 ms */
         background: rgba(0,0,0,0);
         animation: bgIn 0s linear 0.25s forwards;
       }}
-
       .loader {{
         width: 64px; height: 64px; border-radius: 50%;
         border: 6px solid rgba(255,255,255,.25);
@@ -41,15 +39,12 @@ def render_loading_overlay(ui_phase: str | None = None):
         animation: spin 1s linear infinite, appear 0s linear 0.25s forwards;
         opacity: 0; /* só fica visível após 250 ms */
       }}
-
       @keyframes appear {{ to {{ opacity: 1; }} }}
       @keyframes bgIn {{ to {{ background: rgba(0,0,0,.55); }} }}
       @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
     </style>
     <div id="__overlay__"><div class="loader"></div></div>
     """, unsafe_allow_html=True)
-
-render_loading_overlay('loading')
 
 def overlay_on():
     st.session_state.ui_phase = 'loading'
@@ -61,32 +56,8 @@ def overlay_off():
     st.session_state.loading_ts = 0
     render_loading_overlay('ready')
 
-
-render_loading_overlay(st.session_state.ui_phase)
-
-if st.session_state.ui_phase == 'init':
-    st.session_state.ui_phase = 'loading'
-    st.session_state.loading_ts = pytime.time()
-    st.rerun()
-
-
-def start_loading():
-    st.session_state.ui_phase = 'loading'
-    st.session_state.loading_ts = pytime.time()
-    st.rerun()
-
-def stop_loading():
-    st.session_state.ui_phase = 'ready'
-    st.session_state.loading_ts = 0
-    st.rerun()
-
-render_loading_overlay()
-if st.session_state.ui_phase == 'init':
-    start_loading()
-
-# Failsafe opcional (20s)
-if st.session_state.ui_phase == 'loading' and (pytime.time() - st.session_state.loading_ts) > 20:
-    stop_loading()
+# Injeta CSS do overlay em estado pronto (sem loops/reruns automáticos)
+render_loading_overlay('ready')
 
 st.title("Adicionar Nova Ocorrência")
 st.markdown("""
@@ -98,7 +69,7 @@ st.markdown("""
     }
     .stButton > button:hover { background-color: #218838; }
     .card-container {
-        background-color: #FF4B4B; /* Cor vermelha original para os cards */
+        background-color: #FF4B4B;
         color: white; padding: 15px;
         border-radius: 8px; margin-bottom: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         height: 100%;
@@ -124,7 +95,8 @@ def format_datetime_card(dt_obj):
         try:
             dt = pd.to_datetime(dt_obj)
             return dt.strftime('%d/%m/%Y'), dt.strftime('%H:%M')
-        except (ValueError, TypeError): return '', ''
+        except (ValueError, TypeError):
+            return '', ''
     return '', ''
 
 PLANILHA_DESLIGAMENTOS = 'DESLIGAMENTOS'
@@ -138,18 +110,18 @@ SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4V
 
 def fetch_sheet_as_df(worksheet):
     data = worksheet.get_all_values()
-    if not data: return pd.DataFrame()
+    if not data:
+        return pd.DataFrame()
     headers = [h.replace('\xa0', '').strip() for h in data.pop(0)]
     return pd.DataFrame(data, columns=headers)
 
 @st.cache_resource(ttl=600)
 def connect_to_google_sheets():
-    # Verifica se está rodando localmente (o arquivo existe) ou na nuvem (usa st.secrets)
+    # Verifica se está rodando localmente (arquivo existe) ou na nuvem (usa st.secrets)
     if os.path.exists(CREDS_FILE):
         creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
     else:
         creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPES)
-    
     client = gspread.authorize(creds)
     return client
 
@@ -162,22 +134,27 @@ def carregar_dados_e_opcoes():
         df_detalhado = fetch_sheet_as_df(workbook.worksheet(PLANILHA_DETALHADA)).fillna('')
 
         for col in df_dados.columns:
-            if df_dados[col].dtype == 'object': df_dados[col] = df_dados[col].str.strip()
+            if df_dados[col].dtype == 'object':
+                df_dados[col] = df_dados[col].str.strip()
         for col in df_detalhado.columns:
-            if df_detalhado[col].dtype == 'object': df_detalhado[col] = df_detalhado[col].str.strip()
-        
+            if df_detalhado[col].dtype == 'object':
+                df_detalhado[col] = df_detalhado[col].str.strip()
+
         op_cliente = ['-'] + sorted(df_dados[df_dados['CLIENTE'] != '']['CLIENTE'].unique().tolist())
         op_ocorrencia = ['-'] + sorted(df_dados[df_dados['OCORRÊNCIA'] != '']['OCORRÊNCIA'].unique().tolist())
         op_tipo = ['-'] + sorted(df_dados[df_dados['TIPO DE OCORRÊNCIA'] != '']['TIPO DE OCORRÊNCIA'].unique().tolist())
         op_ativo = ['-'] + sorted(df_dados[df_dados['ATIVO'] != '']['ATIVO'].unique().tolist())
         op_operador = ['-'] + sorted(df_dados[df_dados['OPERADOR'] != '']['OPERADOR'].unique().tolist())
-        
-        return { 'df_dados': df_dados, 'df_detalhado': df_detalhado, 'Cliente': op_cliente,
-                 'Ocorrência': op_ocorrencia, 'Tipo de ocorrência': op_tipo, 'Ativo': op_ativo,
-                 'Operador': op_operador }
-    except Exception as e:
-        st.error(f"Erro ao carregar os dados das planilhas: {e}"); return {}
 
+        return {
+            'df_dados': df_dados, 'df_detalhado': df_detalhado,
+            'Cliente': op_cliente, 'Ocorrência': op_ocorrencia,
+            'Tipo de ocorrência': op_tipo, 'Ativo': op_ativo,
+            'Operador': op_operador
+        }
+    except Exception as e:
+        st.error(f"Erro ao carregar os dados das planilhas: {e}")
+        return {}
 
 # --- 3. INTERFACE DO STREAMLIT ---
 render_loading_overlay('loading')
@@ -229,7 +206,6 @@ try:
                         if "QUANTIDADE" in details and details['QUANTIDADE'] and str(details['QUANTIDADE']).strip() != '':
                             quantidade_html = f'<div class="card-item"><span class="card-label">Quantidade:</span> {details["QUANTIDADE"]}</div>'
 
-                        # CORREÇÃO: Todas as chaves .get() agora estão em MAIÚSCULAS
                         card_html = f"""
                         <div class="card-container">
                             <div class="card-title">{details.get("UG", "N/A")}</div>
@@ -271,10 +247,16 @@ try:
         index=None,
         placeholder="Selecione a categoria..."
     )
+
     st.subheader("Informações Gerais")
     col1, col2 = st.columns(2)
+
     with col1:
-        cliente_selecionado = st.selectbox("Cliente", options=dados_e_opcoes.get('Cliente', []), key=f'cliente_select_{reset_counter}')
+        cliente_selecionado = st.selectbox(
+            "Cliente",
+            options=dados_e_opcoes.get('Cliente', []),
+            key=f'cliente_select_{reset_counter}'
+        )
 
         op_ug = []
         if cliente_selecionado and cliente_selecionado != '-':
@@ -330,7 +312,7 @@ try:
                 for _label, _key in eventos_map.items():
                     st.session_state[f'mesmo_dia_{_key}_{reset_counter}'] = master_val
                     st.session_state[f'mesmo_horario_{_key}_{reset_counter}'] = master_val
-            # Checkbox mestre
+
             st.checkbox(
                 "Usar mesma data e hora para todos os eventos",
                 key=f'master_mesmos_{reset_counter}',
@@ -357,17 +339,25 @@ try:
                     if not is_multiplos_itens or st.session_state.get(f'mesmo_horario_{key}_{reset_counter}'):
                         cols[2].time_input(f"Hora {label}", value=default_time, key=f'hora_{key}_master_{reset_counter}', label_visibility="collapsed")
 
-    show_specific_times = is_multiplos_itens and any(not st.session_state.get(f'mesmo_dia_{key}_{reset_counter}') or not st.session_state.get(f'mesmo_horario_{key}_{reset_counter}') for key in eventos_map.values())
+    show_specific_times = is_multiplos_itens and any(
+        not st.session_state.get(f'mesmo_dia_{key}_{reset_counter}') or
+        not st.session_state.get(f'mesmo_horario_{key}_{reset_counter}')
+        for key in eventos_map.values()
+    )
 
     if show_specific_times:
         with st.expander("**Preencher Datas/Horários Específicos**", expanded=True):
             for item in items_para_processar:
-                st.markdown(f"--- \n **{item}**"); item_key = sanitize_key(item)
+                st.markdown(f"--- \n **{item}**")
+                item_key = sanitize_key(item)
                 for label, key in eventos_map.items():
                     if not st.session_state.get(f'mesmo_dia_{key}_{reset_counter}') or not st.session_state.get(f'mesmo_horario_{key}_{reset_counter}'):
-                        cols = st.columns([2, 1, 1]); cols[0].markdown(f"{label}:")
-                        if not st.session_state.get(f'mesmo_dia_{key}_{reset_counter}'): cols[1].date_input(f"Data Específica {label}", value=None, key=f'data_{key}_{item_key}_{reset_counter}', label_visibility="collapsed", format="DD/MM/YYYY")
-                        if not st.session_state.get(f'mesmo_horario_{key}_{reset_counter}'): cols[2].time_input(f"Hora Específica {label}", value=None, key=f'hora_{key}_{item_key}_{reset_counter}', label_visibility="collapsed")
+                        cols = st.columns([2, 1, 1])
+                        cols[0].markdown(f"{label}:")
+                        if not st.session_state.get(f'mesmo_dia_{key}_{reset_counter}'):
+                            cols[1].date_input(f"Data Específica {label}", value=None, key=f'data_{key}_{item_key}_{reset_counter}', label_visibility="collapsed", format="DD/MM/YYYY")
+                        if not st.session_state.get(f'mesmo_horario_{key}_{reset_counter}'):
+                            cols[2].time_input(f"Hora Específica {label}", value=None, key=f'hora_{key}_{item_key}_{reset_counter}', label_visibility="collapsed")
 
     st.markdown("---")
     if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
@@ -377,7 +367,8 @@ try:
             for col_name in ['Inversor Conectado', 'Tracker Conectado', 'Nome String']:
                 if col_name in df_filtrado.columns:
                     match = df_filtrado[df_filtrado[col_name] == ativo_nome]
-                    if not match.empty: return match['Usina'].iloc[0]
+                    if not match.empty:
+                        return match['Usina'].iloc[0]
             return None
 
         iter_list = st.session_state.get('items_para_processar', [])
@@ -401,12 +392,14 @@ try:
 
                 if not ug_final:
                     st.error(f"Não foi possível determinar a UG para o item '{item}'. A ocorrência não foi salva.")
-                    erro_encontrado = True; continue
+                    erro_encontrado = True
+                    continue
 
                 client_df = df_dados[df_dados['UG'] == ug_final]
                 if client_df.empty:
                     st.error(f"Não foi possível encontrar dados (Cliente, Sigla) para a UG '{ug_final}'.")
-                    erro_encontrado = True; continue
+                    erro_encontrado = True
+                    continue
 
                 cliente_final = client_df['CLIENTE'].iloc[0]
                 sigla_final = client_df['SIGLA'].iloc[0]
@@ -476,7 +469,6 @@ try:
                     if linhas_para_adicionar:
                         worksheet.update(f'A{start_row}', linhas_para_adicionar, value_input_option='USER_ENTERED')
 
-                        # O dicionário 'ocorrencias_para_salvar' já está no formato correto.
                         for item_dict in ocorrencias_para_salvar:
                             item_dict['Categoria'] = st.session_state.get(f'categoria_selecionada_{reset_counter}')
 
@@ -497,4 +489,6 @@ try:
                     st.error(f"Ocorreu um erro ao salvar na Planilha Google: {e}")
 
 finally:
+    # Garante desligamento do overlay em sucesso/erro/parada
     overlay_off()
+
