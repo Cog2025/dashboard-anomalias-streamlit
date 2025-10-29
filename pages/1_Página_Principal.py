@@ -4,7 +4,7 @@ import io
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from time import time
+import time as pytime
 import html
 import gspread
 from google.oauth2.service_account import Credentials
@@ -13,6 +13,46 @@ from gspread_dataframe import get_as_dataframe
 
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
+
+if 'ui_phase' not in st.session_state:
+    st.session_state.ui_phase = 'init'
+if 'loading_ts' not in st.session_state:
+    st.session_state.loading_ts = 0
+
+def render_loading_overlay():
+    display = 'flex' if st.session_state.get('ui_phase') == 'loading' else 'none'
+    st.markdown(f"""
+    <style>
+      #__overlay__ {{
+        position: fixed; inset: 0; background: rgba(0,0,0,.55);
+        display: {display}; align-items: center; justify-content: center;
+        z-index: 10000;
+      }}
+      .loader {{ width: 64px; height: 64px; border-radius: 50%;
+        border: 6px solid rgba(255,255,255,.25); border-top-color: #FF4B4B;
+        animation: spin 1s linear infinite; }}
+      @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+    </style>
+    <div id="__overlay__"><div class="loader"></div></div>
+    """, unsafe_allow_html=True)
+
+def start_loading():
+    st.session_state.ui_phase = 'loading'
+    st.session_state.loading_ts = pytime.time()
+    st.rerun()
+
+def stop_loading():
+    st.session_state.ui_phase = 'ready'
+    st.session_state.loading_ts = 0
+    st.rerun()
+
+render_loading_overlay()
+if st.session_state.ui_phase == 'init':
+    start_loading()
+
+# Failsafe opcional (20s)
+if st.session_state.ui_phase == 'loading' and (pytime.time() - st.session_state.loading_ts) > 20:
+    stop_loading()
 
 
 # --- 2. Dicionário para tradução dos meses ---
@@ -334,8 +374,9 @@ with col_kpi1:
 col_top_left, col_top_right = st.columns([0.2, 0.8])
 with col_top_left:
     if st.button('Atualizar Dados'):
-        st.session_state.cache_buster = int(time())
         st.cache_data.clear()
+        st.session_state.ui_phase = 'init'
+        st.session_state.loading_ts = 0
         st.rerun()
 
 
