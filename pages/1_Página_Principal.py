@@ -5,7 +5,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time as pytime
-from time import timeimport html
+import html
 import gspread
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import get_as_dataframe
@@ -14,30 +14,42 @@ from gspread_dataframe import get_as_dataframe
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
 
+# Estado do overlay
 if 'ui_phase' not in st.session_state:
     st.session_state.ui_phase = 'init'
 if 'loading_ts' not in st.session_state:
     st.session_state.loading_ts = 0
 
-def render_loading_overlay(ui_phase: str):
-    display = 'flex' if ui_phase == 'loading' else 'none'
+def render_loading_overlay(ui_phase: str | None = None):
+    phase = ui_phase or st.session_state.get('ui_phase', 'ready')
+    display = 'flex' if phase == 'loading' else 'none'
     st.markdown(f"""
     <style>
-      #__overlay__ {{
+    #__overlay__ {{
         position: fixed; inset: 0; background: rgba(0,0,0,.55);
         display: {display}; align-items: center; justify-content: center;
         z-index: 10000;
-      }}
-      .loader {{
+    }}
+    .loader {{
         width: 64px; height: 64px; border-radius: 50%;
         border: 6px solid rgba(255,255,255,.25);
         border-top-color: #FF4B4B;
         animation: spin 1s linear infinite;
-      }}
-      @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+    }}
+    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
     </style>
     <div id="__overlay__"><div class="loader"></div></div>
     """, unsafe_allow_html=True)
+
+
+# Desenhar overlay conforme estado
+render_loading_overlay(st.session_state.ui_phase)
+
+# Primeira passada -> liga overlay e reroda
+if st.session_state.ui_phase == 'init':
+    st.session_state.ui_phase = 'loading'
+    st.session_state.loading_ts = pytime.time()
+    st.rerun()
 
 
 def start_loading():
@@ -287,6 +299,11 @@ if 'cache_buster' not in st.session_state:
 
 df_todos_dados = carregar_dados_google_sheets(st.session_state.cache_buster)
 
+if st.session_state.ui_phase != 'ready':
+    st.session_state.ui_phase = 'ready'
+    st.session_state.loading_ts = 0
+    st.rerun()
+
 
 
 # Garante que a coluna de data/hora está no formato correto
@@ -377,7 +394,7 @@ with col_kpi1:
 # --- 7. Botão de Atualização ---
 col_top_left, col_top_right = st.columns([0.2, 0.8])
 with col_top_left:
-    if st.button('Atualizar Dados'):
+    if st.button("Atualizar Dados"):
         st.cache_data.clear()
         st.session_state.ui_phase = 'init'
         st.session_state.loading_ts = 0

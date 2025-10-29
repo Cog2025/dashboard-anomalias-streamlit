@@ -16,25 +16,34 @@ if 'ui_phase' not in st.session_state:
 if 'loading_ts' not in st.session_state:
     st.session_state.loading_ts = 0
 
-def render_loading_overlay(ui_phase: str):
-    display = 'flex' if ui_phase == 'loading' else 'none'
+def render_loading_overlay(ui_phase: str | None = None):
+    phase = ui_phase or st.session_state.get('ui_phase', 'ready')
+    display = 'flex' if phase == 'loading' else 'none'
     st.markdown(f"""
     <style>
-      #__overlay__ {{
+    #__overlay__ {{
         position: fixed; inset: 0; background: rgba(0,0,0,.55);
         display: {display}; align-items: center; justify-content: center;
         z-index: 10000;
-      }}
-      .loader {{
+    }}
+    .loader {{
         width: 64px; height: 64px; border-radius: 50%;
         border: 6px solid rgba(255,255,255,.25);
         border-top-color: #FF4B4B;
         animation: spin 1s linear infinite;
-      }}
-      @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+    }}
+    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
     </style>
     <div id="__overlay__"><div class="loader"></div></div>
     """, unsafe_allow_html=True)
+
+
+render_loading_overlay(st.session_state.ui_phase)
+
+if st.session_state.ui_phase == 'init':
+    st.session_state.ui_phase = 'loading'
+    st.session_state.loading_ts = pytime.time()
+    st.rerun()
 
 def start_loading():
     st.session_state.ui_phase = 'loading'
