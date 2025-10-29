@@ -46,7 +46,6 @@ def render_loading_overlay(ui_phase: str | None = None):
     """.replace("__DISPLAY__", display)
     st.markdown(css, unsafe_allow_html=True)
 
-
 def overlay_on():
     st.session_state.ui_phase = 'loading'
     st.session_state.loading_ts = pytime.time()
@@ -57,7 +56,7 @@ def overlay_off():
     st.session_state.loading_ts = 0
     render_loading_overlay('ready')
 
-# Injeta CSS do overlay em estado pronto (sem loops/reruns automáticos)
+# Injeta CSS do overlay em estado pronto
 render_loading_overlay('ready')
 
 st.title("Adicionar Nova Ocorrência")
@@ -158,17 +157,12 @@ def carregar_dados_e_opcoes():
         return {}
 
 # --- 3. INTERFACE DO STREAMLIT ---
-render_loading_overlay('loading')
+overlay_on()
 
 # Helper para parar com overlay desligado e mensagem
 def _stop_with_overlay_off(msg: str | None = None, kind: str = "warning"):
     if msg:
-        if kind == "warning":
-            st.warning(msg)
-        elif kind == "error":
-            st.error(msg)
-        elif kind == "info":
-            st.info(msg)
+        (st.warning if kind == "warning" else st.error if kind == "error" else st.info)(msg)
     overlay_off()
     st.stop()
 
@@ -177,70 +171,15 @@ try:
     if not dados_e_opcoes:
         _stop_with_overlay_off("Não foi possível carregar os dados desta página.", kind="error")
 
-    # 3) garantir que 'categoria' existe antes de validar
-    categoria = st.session_state.get('categoria') or dados_e_opcoes.get('categoria')
-    if not categoria:
-        _stop_with_overlay_off("Selecione uma categoria para continuar.")
-
-    # 4) depois, prossiga
     df_dados = dados_e_opcoes.get('df_dados', pd.DataFrame())
     df_detalhado = dados_e_opcoes.get('df_detalhado', pd.DataFrame())
-
-    if 'last_submission_details' in st.session_state and st.session_state.last_submission_details:
-        submitted_occurrences = st.session_state.last_submission_details
-        st.success(f"{len(submitted_occurrences)} ocorrência(s) adicionada(s) com sucesso!")
-
-        num_cols = 4
-        for i in range(0, len(submitted_occurrences), num_cols):
-            cols = st.columns(num_cols)
-            for j in range(num_cols):
-                if i + j < len(submitted_occurrences):
-                    with cols[j]:
-                        details = submitted_occurrences[i + j]
-
-                        data_ocor, hora_ocor = format_datetime_card(details.get('DESLIGAMENTO'))
-                        data_loop, hora_loop = format_datetime_card(details.get('ATENDIMENTO LOOP'))
-                        data_terc, hora_terc = format_datetime_card(details.get('ATENDIMENTO TERCEIROS'))
-                        data_norm, hora_norm = format_datetime_card(details.get('NORMALIZAÇÃO'))
-
-                        quantidade_html = ""
-                        if "QUANTIDADE" in details and details['QUANTIDADE'] and str(details['QUANTIDADE']).strip() != '':
-                            quantidade_html = f'<div class="card-item"><span class="card-label">Quantidade:</span> {details["QUANTIDADE"]}</div>'
-
-                        card_html = f"""
-                        <div class="card-container">
-                            <div class="card-title">{details.get("UG", "N/A")}</div>
-                            <div class="card-item"><span class="card-label">Categoria:</span> {details.get("Categoria", "")}</div>
-                            <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {details.get("TIPO DE OCORRÊNCIA", "")}</div>
-                            <div class="card-item"><span class="card-label">Ativo:</span> {details.get("ATIVO", "")}</div>
-                            <div class="card-item"><span class="card-label">Nome do ativo:</span> {details.get("NOME ATIVO", "")}</div>
-                            <div class="card-item"><span class="card-label">Ocorrência:</span> {details.get("OCORRÊNCIA", "")}</div>
-                            {quantidade_html}
-                            <br>
-                            <div class="card-item"><span class="card-label">Data da ocorrência:</span> {data_ocor}</div>
-                            <div class="card-item"><span class="card-label">Hora da ocorrência:</span> {hora_ocor}</div>
-                            <div class="card-item"><span class="card-label">Data do atendimento LOOP:</span> {data_loop}</div>
-                            <div class="card-item"><span class="card-label">Hora do atendimento LOOP:</span> {hora_loop}</div>
-                            <div class="card-item"><span class="card-label">Data do atendimento de terceiros:</span> {data_terc}</div>
-                            <div class="card-item"><span class="card-label">Hora do atendimento de terceiros:</span> {hora_terc}</div>
-                            <div class="card-item"><span class="card-label">Data de normalização:</span> {data_norm}</div>
-                            <div class="card-item"><span class="card-label">Hora de normalização:</span> {hora_norm}</div>
-                            <br>
-                            <div class="card-item"><span class="card-label">Descrição:</span> {str(details.get("DESCRIÇÃO", "")).replace('\n', '<br>')}</div>
-                            <div class="card-item"><span class="card-label">Protocolo:</span> {details.get("PROTOCOLO", "")}</div>
-                            <div class="card-item"><span class="card-label">OS:</span> {details.get("OS", "")}</div>
-                        </div>
-                        """
-                        st.html(card_html)
-        del st.session_state['last_submission_details']
 
     # Inicializar contador de reset (para forçar recriação de widgets)
     if 'form_reset_counter' not in st.session_state:
         st.session_state.form_reset_counter = 0
-
-    # Obter o contador atual
     reset_counter = st.session_state.form_reset_counter
 
+    # Seleção de categoria (validação só DEPOIS do selectbox)
     categoria_selecionada = st.selectbox(
         "Selecione a Categoria da Ocorrência",
         options=[PLANILHA_DESLIGAMENTOS, PLANILHA_EQUIPAMENTOS],
@@ -248,16 +187,18 @@ try:
         index=None,
         placeholder="Selecione a categoria..."
     )
+    if not categoria_selecionada:
+        overlay_off()
+        st.warning("Selecione uma categoria para continuar.")
+        st.stop()
+
+    # Persistir para outras páginas (opcional)
+    st.session_state['categoria'] = categoria_selecionada
 
     st.subheader("Informações Gerais")
     col1, col2 = st.columns(2)
-
     with col1:
-        cliente_selecionado = st.selectbox(
-            "Cliente",
-            options=dados_e_opcoes.get('Cliente', []),
-            key=f'cliente_select_{reset_counter}'
-        )
+        cliente_selecionado = st.selectbox("Cliente", options=dados_e_opcoes.get('Cliente', []), key=f'cliente_select_{reset_counter}')
 
         op_ug = []
         if cliente_selecionado and cliente_selecionado != '-':
@@ -307,7 +248,6 @@ try:
 
     with st.container(border=True):
         if is_multiplos_itens:
-            # Utilitário para marcar/desmarcar todos os "mesmo dia/horário"
             def toggle_mesmos():
                 master_val = st.session_state.get(f'master_mesmos_{reset_counter}', False)
                 for _label, _key in eventos_map.items():
@@ -386,7 +326,7 @@ try:
                 item_key_sanitized = sanitize_key(item)
                 ug_final, nome_ativo_para_salvar = (None, item)
 
-                if ativo_selecionado.upper() in ['INVERSOR', 'TRACKER', 'STRING']:
+                if ativo_selecionado and ativo_selecionado.upper() in ['INVERSOR', 'TRACKER', 'STRING']:
                     ug_final = find_ug_for_ativo(item, df_detalhado, ugs_selecionadas_no_form)
                 else:
                     ug_final, nome_ativo_para_salvar = (item, item)
@@ -483,12 +423,55 @@ try:
 
                         # Incrementar contador para forçar recriação de todos os widgets
                         st.session_state.form_reset_counter += 1
-
                         st.rerun()
 
                 except Exception as e:
                     st.error(f"Ocorreu um erro ao salvar na Planilha Google: {e}")
 
+    # Render de cards de sucesso (após rerun)
+    if 'last_submission_details' in st.session_state and st.session_state.last_submission_details:
+        submitted_occurrences = st.session_state.last_submission_details
+        st.success(f"{len(submitted_occurrences)} ocorrência(s) adicionada(s) com sucesso!")
+        num_cols = 4
+        for i in range(0, len(submitted_occurrences), num_cols):
+            cols = st.columns(num_cols)
+            for j in range(num_cols):
+                if i + j < len(submitted_occurrences):
+                    with cols[j]:
+                        details = submitted_occurrences[i + j]
+                        data_ocor, hora_ocor = format_datetime_card(details.get('DESLIGAMENTO'))
+                        data_loop, hora_loop = format_datetime_card(details.get('ATENDIMENTO LOOP'))
+                        data_terc, hora_terc = format_datetime_card(details.get('ATENDIMENTO TERCEIROS'))
+                        data_norm, hora_norm = format_datetime_card(details.get('NORMALIZAÇÃO'))
+                        quantidade_html = ""
+                        if "QUANTIDADE" in details and details['QUANTIDADE'] and str(details['QUANTIDADE']).strip() != '':
+                            quantidade_html = f'<div class="card-item"><span class="card-label">Quantidade:</span> {details["QUANTIDADE"]}</div>'
+                        card_html = f"""
+                        <div class="card-container">
+                            <div class="card-title">{details.get("UG", "N/A")}</div>
+                            <div class="card-item"><span class="card-label">Categoria:</span> {details.get("Categoria", "")}</div>
+                            <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {details.get("TIPO DE OCORRÊNCIA", "")}</div>
+                            <div class="card-item"><span class="card-label">Ativo:</span> {details.get("ATIVO", "")}</div>
+                            <div class="card-item"><span class="card-label">Nome do ativo:</span> {details.get("NOME ATIVO", "")}</div>
+                            <div class="card-item"><span class="card-label">Ocorrência:</span> {details.get("OCORRÊNCIA", "")}</div>
+                            {quantidade_html}
+                            <br>
+                            <div class="card-item"><span class="card-label">Data da ocorrência:</span> {data_ocor}</div>
+                            <div class="card-item"><span class="card-label">Hora da ocorrência:</span> {hora_ocor}</div>
+                            <div class="card-item"><span class="card-label">Data do atendimento LOOP:</span> {data_loop}</div>
+                            <div class="card-item"><span class="card-label">Hora do atendimento LOOP:</span> {hora_loop}</div>
+                            <div class="card-item"><span class="card-label">Data do atendimento de terceiros:</span> {data_terc}</div>
+                            <div class="card-item"><span class="card-label">Hora do atendimento de terceiros:</span> {hora_terc}</div>
+                            <div class="card-item"><span class="card-label">Data de normalização:</span> {data_norm}</div>
+                            <div class="card-item"><span class="card-label">Hora de normalização:</span> {hora_norm}</div>
+                            <br>
+                            <div class="card-item"><span class="card-label">Descrição:</span> {str(details.get("DESCRIÇÃO", "")).replace('\n', '<br>')}</div>
+                            <div class="card-item"><span class="card-label">Protocolo:</span> {details.get("PROTOCOLO", "")}</div>
+                            <div class="card-item"><span class="card-label">OS:</span> {details.get("OS", "")}</div>
+                        </div>
+                        """
+                        st.html(card_html)
+        del st.session_state['last_submission_details']
+
 finally:
-    # Garante desligamento do overlay em sucesso/erro/parada
     overlay_off()
