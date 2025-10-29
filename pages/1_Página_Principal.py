@@ -5,7 +5,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time as pytime
-import html
+from time import timeimport html
 import gspread
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import get_as_dataframe
@@ -279,7 +279,7 @@ def carregar_dados_google_sheets(cache_buster: int = 0):
 
 
 if 'cache_buster' not in st.session_state:
-    st.session_state.cache_buster = int(time())  # novo valor a cada reload da página
+    st.session_state.cache_buster = int(pytime.time())  # novo valor a cada reload da página
 
 df_todos_dados = carregar_dados_google_sheets(st.session_state.cache_buster)
 

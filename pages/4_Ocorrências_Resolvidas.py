@@ -184,7 +184,7 @@ def carregar_dados_google_sheets(cache_buster: int = 0):
 
 # cache bust
 if 'cache_buster' not in st.session_state:
-    st.session_state.cache_buster = int(time())
+    st.session_state.cache_buster = int(pytime.time())
 
 df = carregar_dados_google_sheets(st.session_state.cache_buster)
 df['Desligamento'] = pd.to_datetime(df['Desligamento'], errors='coerce')
