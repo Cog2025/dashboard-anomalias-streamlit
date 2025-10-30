@@ -8,6 +8,9 @@ import time as pytime
 import html
 import gspread
 from google.oauth2.service_account import Credentials
+import re
+import unicodedata
+from collections import Counter, defaultdict
 
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
@@ -94,6 +97,47 @@ if st.session_state.ui_phase == 'init':
 # Failsafe opcional (20s)
 if st.session_state.ui_phase == 'loading' and (pytime.time() - st.session_state.loading_ts) > 20:
     stop_loading()
+
+def _collapse_spaces(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip()
+
+def canon(s) -> str:
+    if s is None:
+        return ""
+    s = str(s)
+    s = _collapse_spaces(s)
+    # case-insensitive robusto
+    s = s.casefold()
+    return s
+
+def build_display_map(series: pd.Series) -> dict:
+    # mapeia forma canônica -> rótulo preferido (mais frequente)
+    buckets = defaultdict(Counter)
+    for v in series.dropna():
+        v_str = _collapse_spaces(str(v))
+        if not v_str:
+            continue
+        buckets[canon(v_str)][v_str] += 1
+    display_map = {}
+    for ckey, counter in buckets.items():
+        # rótulo preferido = o mais frequente
+        best, _ = counter.most_common(1)[0]
+        display_map[ckey] = best
+    return display_map
+
+def options_from(series: pd.Series) -> list:
+    # gera lista de opções sem vazios e com rótulo consolidado
+    series = series.astype(str).map(_collapse_spaces)
+    series = series[series != ""]
+    dmap = build_display_map(series)
+    labels = {dmap[canon(v)] for v in series}
+    return ["-"] + sorted(labels)
+
+def matches_canon(series: pd.Series, selected: str) -> pd.Series:
+    if not selected or selected == "-":
+        return pd.Series([True] * len(series))
+    sel_c = canon(selected)
+    return series.astype(str).map(canon).eq(sel_c)
 
 # --- 2. Dicionário para tradução dos meses (mesmo da página principal) ---
 meses_traducao = {

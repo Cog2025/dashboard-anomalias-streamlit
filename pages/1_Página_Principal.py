@@ -1,5 +1,4 @@
 import os
-from webdav3.client import Client
 import io
 import streamlit as st
 import pandas as pd
@@ -8,7 +7,8 @@ import time as pytime
 import html
 import gspread
 from google.oauth2.service_account import Credentials
-from gspread_dataframe import get_as_dataframe
+import re
+from collections import Counter, defaultdict
 
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
@@ -61,18 +61,16 @@ def overlay_off():
     st.session_state.loading_ts = 0
     render_loading_overlay('ready')
 
-# LIGA overlay no início DE CADA EXECUÇÃO
-overlay_on()
-try:
-    # ====== a partir daqui, carregue dados/páginas normalmente ======
-    pass
-finally:
-    # DESLIGA overlay em QUALQUER situação (sucesso/erro/retorno)
-    overlay_off()
-
 
 # Desenhar overlay conforme estado
 render_loading_overlay(st.session_state.ui_phase)
+
+def matches_any_canon(series: pd.Series, selected: list[str]) -> pd.Series:
+    if not selected:
+        return pd.Series([True]*len(series), index=series.index)
+    sel_c = {canon(s) for s in selected if s and s != "-"}
+    return series.astype(str).map(canon).isin(sel_c)
+
 
 # Primeira passada -> liga overlay e reroda
 if st.session_state.ui_phase == 'init':
@@ -99,6 +97,46 @@ if st.session_state.ui_phase == 'init':
 if st.session_state.ui_phase == 'loading' and (pytime.time() - st.session_state.loading_ts) > 20:
     stop_loading()
 
+def _collapse_spaces(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip()
+
+def canon(s) -> str:
+    if s is None:
+        return ""
+    s = str(s)
+    s = _collapse_spaces(s)
+    # case-insensitive robusto
+    s = s.casefold()
+    return s
+
+def build_display_map(series: pd.Series) -> dict:
+    # mapeia forma canônica -> rótulo preferido (mais frequente)
+    buckets = defaultdict(Counter)
+    for v in series.dropna():
+        v_str = _collapse_spaces(str(v))
+        if not v_str:
+            continue
+        buckets[canon(v_str)][v_str] += 1
+    display_map = {}
+    for ckey, counter in buckets.items():
+        # rótulo preferido = o mais frequente
+        best, _ = counter.most_common(1)[0]
+        display_map[ckey] = best
+    return display_map
+
+def options_from(series: pd.Series) -> list:
+    # gera lista de opções sem vazios e com rótulo consolidado
+    series = series.astype(str).map(_collapse_spaces)
+    series = series[series != ""]
+    dmap = build_display_map(series)
+    labels = {dmap[canon(v)] for v in series}
+    return ["-"] + sorted(labels)
+
+def matches_canon(series: pd.Series, selected: str) -> pd.Series:
+    if not selected or selected == "-":
+        return pd.Series([True] * len(series))
+    sel_c = canon(selected)
+    return series.astype(str).map(canon).eq(sel_c)
 
 # --- 2. Dicionário para tradução dos meses ---
 meses_traducao = {
@@ -392,15 +430,20 @@ if 'filtros_dias' not in st.session_state:
 if 'filtros_categorias' not in st.session_state:
     st.session_state.filtros_categorias = sorted(df_todos_dados['Categoria'].unique().tolist()) if not df_todos_dados.empty else []
 if 'filtros_clientes' not in st.session_state:
-    st.session_state.filtros_clientes = sorted(df_todos_dados['Cliente'].unique().tolist()) if not df_todos_dados.empty else []
+    cli_series = df_todos_dados['Cliente'].astype(str).map(_collapse_spaces)
+    st.session_state.filtros_clientes = sorted(
+        [v for v in cli_series.unique().tolist() if v and v != "-" and v != "0"]
+    )
 if 'filtros_ugs' not in st.session_state:
     st.session_state.filtros_ugs = sorted(df_todos_dados['UG'].unique().tolist()) if not df_todos_dados.empty else []
 if 'filtros_tipos' not in st.session_state:
-    st.session_state.filtros_tipos = sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist()) if not df_todos_dados.empty else []
+    tip_opts_init = sorted([x for x in options_from(df_todos_dados['Tipo de ocorrência']) if x != "-"])
+    st.session_state.filtros_tipos = tip_opts_init[:]
 if 'filtros_ativos' not in st.session_state:
     st.session_state.filtros_ativos = sorted(df_todos_dados['Ativo'].unique().tolist()) if not df_todos_dados.empty else []
 if 'filtros_ocorrencias' not in st.session_state:
-    st.session_state.filtros_ocorrencias = sorted(df_todos_dados['Ocorrência'].unique().tolist()) if not df_todos_dados.empty else []
+    ocr_opts_init = sorted([x for x in options_from(df_todos_dados['Ocorrência']) if x != "-"])
+    st.session_state.filtros_ocorrencias = ocr_opts_init[:]
 
 
 # --- 6. Título e KPIs ---
@@ -522,22 +565,40 @@ if not df_todos_dados.empty:
     with col_cliente:
         with st.container(border=True):
             st.write("Cliente:")
+            # base de opções já sem "", "-", "0"
+            cli_series = df_todos_dados['Cliente'].astype(str).map(_collapse_spaces)
+            cli_opts = sorted([v for v in cli_series.unique().tolist() if v and v != "-" and v != "0"])
+
             col_b = st.columns(2)
             with col_b[0]:
                 if st.button('Sel. Todos', key='sel_cli', use_container_width=True):
-                    st.session_state.filtros_clientes = sorted(df_todos_dados['Cliente'].unique().tolist()); st.rerun()
+                    st.session_state.filtros_clientes = cli_opts; st.rerun()
             with col_b[1]:
                 if st.button('Desmarcar', key='des_cli', use_container_width=True):
                     st.session_state.filtros_clientes = []; st.rerun()
-            st.session_state.filtros_clientes = st.multiselect(' ', options=sorted(df_todos_dados['Cliente'].unique().tolist()),
-                                                            default=st.session_state.filtros_clientes, label_visibility='hidden')
+
+            # multiselect usando as opções filtradas
+            st.session_state.filtros_clientes = st.multiselect(
+                ' ', options=cli_opts,
+                default=[x for x in st.session_state.filtros_clientes if x in cli_opts],
+                label_visibility='hidden'
+            )
 
     with col_ug:
         with st.container(border=True):
             st.write("UG:")
-            df_temp = df_todos_dados[df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)]
-            ugs_disponiveis = sorted(df_temp['UG'].unique().tolist())
+
+            if 'Cliente' in df_todos_dados.columns and st.session_state.filtros_clientes:
+                df_temp = df_todos_dados[df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)]
+            else:
+                df_temp = df_todos_dados
+
+            ugs_series = df_temp['UG'].astype(str).map(_collapse_spaces) if 'UG' in df_temp.columns else pd.Series([], dtype=str)
+            ugs_disponiveis = sorted([u for u in ugs_series.unique().tolist() if u and u != "-"])
+
+            # mantém apenas UGs válidas no estado
             st.session_state.filtros_ugs = [ug for ug in st.session_state.filtros_ugs if ug in ugs_disponiveis]
+
             col_b = st.columns(2)
             with col_b[0]:
                 if st.button('Sel. Todos', key='sel_ug', use_container_width=True):
@@ -545,47 +606,82 @@ if not df_todos_dados.empty:
             with col_b[1]:
                 if st.button('Desmarcar', key='des_ug', use_container_width=True):
                     st.session_state.filtros_ugs = []; st.rerun()
-            st.session_state.filtros_ugs = st.multiselect(' ', options=ugs_disponiveis,
-                                                        default=st.session_state.filtros_ugs, label_visibility='hidden')
+
+            st.session_state.filtros_ugs = st.multiselect(
+                ' ', options=ugs_disponiveis,
+                default=st.session_state.filtros_ugs,
+                label_visibility='hidden'
+            )
+
 
     with col_tipo:
         with st.container(border=True):
             st.write("Tipo de Ocorrência:")
+            tip_opts = sorted([x for x in options_from(df_todos_dados['Tipo de ocorrência']) if x != "-"])
+
             col_b = st.columns(2)
             with col_b[0]:
                 if st.button('Sel. Todos', key='sel_tipo', use_container_width=True):
-                    st.session_state.filtros_tipos = sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist()); st.rerun()
+                    st.session_state.filtros_tipos = tip_opts; st.rerun()
             with col_b[1]:
                 if st.button('Desmarcar', key='des_tipo', use_container_width=True):
                     st.session_state.filtros_tipos = []; st.rerun()
-            st.session_state.filtros_tipos = st.multiselect(' ', options=sorted(df_todos_dados['Tipo de ocorrência'].unique().tolist()),
-                                                            default=st.session_state.filtros_tipos, label_visibility='hidden')
+
+            # harmoniza defaults antes do multiselect
+            st.session_state.filtros_tipos = [x for x in st.session_state.filtros_tipos if x in tip_opts]
+
+            st.session_state.filtros_tipos = st.multiselect(
+                ' ', options=tip_opts,
+                default=st.session_state.filtros_tipos,
+                label_visibility='hidden'
+            )
+
 
     with col_ativo:
         with st.container(border=True):
             st.write("Ativo:")
+            atv_opts = sorted([x for x in options_from(df_todos_dados['Ativo']) if x != "-"])
+
             col_b = st.columns(2)
             with col_b[0]:
                 if st.button('Sel. Todos', key='sel_ativo', use_container_width=True):
-                    st.session_state.filtros_ativos = sorted(df_todos_dados['Ativo'].unique().tolist()); st.rerun()
+                    st.session_state.filtros_ativos = atv_opts; st.rerun()
             with col_b[1]:
                 if st.button('Desmarcar', key='des_ativo', use_container_width=True):
                     st.session_state.filtros_ativos = []; st.rerun()
-            st.session_state.filtros_ativos = st.multiselect(' ', options=sorted(df_todos_dados['Ativo'].unique().tolist()),
-                                                            default=st.session_state.filtros_ativos, label_visibility='hidden')
+
+            # harmoniza defaults antes do multiselect
+            st.session_state.filtros_ativos = [x for x in st.session_state.filtros_ativos if x in atv_opts]
+
+            st.session_state.filtros_ativos = st.multiselect(
+                ' ', options=atv_opts,
+                default=st.session_state.filtros_ativos,
+                label_visibility='hidden'
+            )
+
 
     with col_ocorrencia:
         with st.container(border=True):
             st.write("Ocorrência:")
+            ocr_opts = sorted([x for x in options_from(df_todos_dados['Ocorrência']) if x != "-"])
+
             col_b = st.columns(2)
             with col_b[0]:
                 if st.button('Sel. Todos', key='sel_ocorr', use_container_width=True):
-                    st.session_state.filtros_ocorrencias = sorted(df_todos_dados['Ocorrência'].unique().tolist()); st.rerun()
+                    st.session_state.filtros_ocorrencias = ocr_opts; st.rerun()
             with col_b[1]:
                 if st.button('Desmarcar', key='des_ocorr', use_container_width=True):
                     st.session_state.filtros_ocorrencias = []; st.rerun()
-            st.session_state.filtros_ocorrencias = st.multiselect(' ', options=sorted(df_todos_dados['Ocorrência'].unique().tolist()),
-                                                                default=st.session_state.filtros_ocorrencias, label_visibility='hidden')
+
+            # harmoniza defaults antes do multiselect
+            st.session_state.filtros_ocorrencias = [x for x in st.session_state.filtros_ocorrencias if x in ocr_opts]
+
+            st.session_state.filtros_ocorrencias = st.multiselect(
+                ' ', options=ocr_opts,
+                default=st.session_state.filtros_ocorrencias,
+                label_visibility='hidden'
+            )
+
 
 
 
@@ -620,11 +716,11 @@ if not df_todos_dados.empty:
     if st.session_state.get("categoria_top") in ("DESLIGAMENTOS", "EQUIPAMENTOS"):
         m_cat = m_cat & (df_todos_dados['Categoria'] == st.session_state["categoria_top"])
 
-    m_cli = df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)
-    m_ug  = df_todos_dados['UG'].isin(st.session_state.filtros_ugs)
-    m_tip = df_todos_dados['Tipo de ocorrência'].isin(st.session_state.filtros_tipos)
-    m_atv = df_todos_dados['Ativo'].isin(st.session_state.filtros_ativos)
-    m_ocr = df_todos_dados['Ocorrência'].isin(st.session_state.filtros_ocorrencias)
+    m_cli = matches_any_canon(df_todos_dados['Cliente'], st.session_state.filtros_clientes)
+    m_ug  = df_todos_dados['UG'].astype(str).map(_collapse_spaces).isin(st.session_state.filtros_ugs)
+    m_tip = matches_any_canon(df_todos_dados['Tipo de ocorrência'], st.session_state.filtros_tipos)
+    m_atv = matches_any_canon(df_todos_dados['Ativo'],   st.session_state.filtros_ativos)
+    m_ocr = matches_any_canon(df_todos_dados['Ocorrência'],         st.session_state.filtros_ocorrencias)
 
     df_filtrado = df_todos_dados[m_ano & m_mes & m_dia & m_cat & m_cli & m_ug & m_tip & m_atv & m_ocr].copy()
     df_desligadas = df_filtrado[pd.isna(df_filtrado['Normalização']) | (df_filtrado['Normalização'] == '')].copy()
