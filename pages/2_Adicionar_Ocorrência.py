@@ -494,10 +494,13 @@ try:
                         for item_dict in ocorrencias_para_salvar:
                             item_dict['Categoria'] = st.session_state.get(f'categoria_selecionada_{reset_counter}')
 
-                        # mantém só isto e remova o que vem depois
-                        st.session_state.last_submission_details = ocorrencias_para_salvar  # lista de dicts
+                        st.session_state.last_submission_details = ocorrencias_para_salvar
                         st.session_state.ui_phase = 'ready'
                         st.rerun()
+
+                except Exception as e:
+                    st.error(f"Ocorreu um erro ao salvar na Planilha Google: {e}")
+
 
 
 finally:
