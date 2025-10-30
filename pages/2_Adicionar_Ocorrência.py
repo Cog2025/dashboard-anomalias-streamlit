@@ -168,6 +168,87 @@ def _stop_with_overlay_off(msg: str | None = None, kind: str = "warning"):
 
 try:
     dados_e_opcoes = carregar_dados_e_opcoes()
+    # --- 3. PÓS-ENVIO: cards de confirmação (colar logo após carregar dados_e_opcoes) ---
+    def _get(details: dict, aliases: list[str]):
+        for k in aliases:
+            v = details.get(k)
+            if v not in (None, ''):
+                return v
+        return ''
+
+    def _fmt_dt(v):
+        try:
+            dt = pd.to_datetime(v) if not isinstance(v, datetime) else v
+            return dt.strftime('%d/%m/%Y'), dt.strftime('%H:%M')
+        except Exception:
+            return '', ''
+    
+    # Render de cards de sucesso (após rerun)
+    if 'last_submission_details' in st.session_state and st.session_state.last_submission_details:
+        submitted_occurrences = st.session_state.last_submission_details
+        st.success(f"{len(submitted_occurrences)} ocorrência(s) adicionada(s) com sucesso!")  # feedback
+        num_cols = 4
+
+        for i in range(0, len(submitted_occurrences), num_cols):
+            cols = st.columns(num_cols)
+            for j in range(num_cols):
+                if i + j >= len(submitted_occurrences):
+                    break
+                with cols[j]:
+                    d = submitted_occurrences[i + j]
+
+                    d_des, h_des   = _fmt_dt(_get(d, ['DESLIGAMENTO','Desligamento']))
+                    d_norm, h_norm = _fmt_dt(_get(d, ['NORMALIZAÇÃO','Normalização']))
+                    d_loop, h_loop = _fmt_dt(_get(d, ['ATENDIMENTO LOOP','Atendimento Loop']))
+                    d_terc, h_terc = _fmt_dt(_get(d, ['ATENDIMENTO TERCEIROS','Atendimento Terceiros']))
+
+                    cliente = _get(d, ['CLIENTE','Cliente'])
+                    categoria = _get(d, ['CATEGORIA','Categoria'])
+                    ug = _get(d, ['UG','Ug'])
+                    tipo = _get(d, ['TIPO DE OCORRÊNCIA','Tipo de ocorrência'])
+                    ativo = _get(d, ['ATIVO','Ativo'])
+                    nome_ativo = _get(d, ['NOME ATIVO','Nome Ativo'])
+                    ocorr = _get(d, ['OCORRÊNCIA','Ocorrência'])
+                    operador = _get(d, ['OPERADOR','Operador'])
+                    protocolo = _get(d, ['PROTOCOLO','Protocolo'])
+                    os_code = _get(d, ['OS','Os'])
+                    qtd = _get(d, ['QUANTIDADE','Quantidade'])
+
+                    qtd_html = ''
+                    try:
+                        if str(qtd).strip() and float(qtd) > 0:
+                            qtd_html = f'<div class="card-item"><span class="card-label">Quantidade:</span> {int(float(qtd))}</div>'
+                    except Exception:
+                        pass
+
+                    st.markdown(f"""
+                    <div class="card-container">
+                    <div class="card-title">{ug or 'N/A'}</div>
+                    <div class="card-item"><span class="card-label">Cliente:</span> {cliente}</div>
+                    <div class="card-item"><span class="card-label">Categoria:</span> {categoria}</div>
+                    <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {tipo}</div>
+                    <div class="card-item"><span class="card-label">Ativo:</span> {ativo}</div>
+                    <div class="card-item"><span class="card-label">Nome do ativo:</span> {nome_ativo}</div>
+                    <div class="card-item"><span class="card-label">Ocorrência:</span> {ocorr}</div>
+                    <div class="card-item"><span class="card-label">Operador:</span> {operador}</div>
+                    {qtd_html}
+                    <br>
+                    <div class="card-item"><span class="card-label">Data do desligamento:</span> {d_des}</div>
+                    <div class="card-item"><span class="card-label">Hora do desligamento:</span> {h_des}</div>
+                    <div class="card-item"><span class="card-label">Data da normalização:</span> {d_norm}</div>
+                    <div class="card-item"><span class="card-label">Hora da normalização:</span> {h_norm}</div>
+                    <div class="card-item"><span class="card-label">Data atendimento LOOP:</span> {d_loop}</div>
+                    <div class="card-item"><span class="card-label">Hora atendimento LOOP:</span> {h_loop}</div>
+                    <div class="card-item"><span class="card-label">Data atendimento terceiros:</span> {d_terc}</div>
+                    <div class="card-item"><span class="card-label">Hora atendimento terceiros:</span> {h_terc}</div>
+                    <br>
+                    <div class="card-item"><span class="card-label">Protocolo:</span> {protocolo}</div>
+                    <div class="card-item"><span class="card-label">OS:</span> {os_code}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            # depois de renderizar os cards de sucesso
+            del st.session_state['last_submission_details']
+            st.session_state.form_reset_counter = st.session_state.get('form_reset_counter', 0) + 1
     if not dados_e_opcoes:
         _stop_with_overlay_off("Não foi possível carregar os dados desta página.", kind="error")
 
@@ -413,65 +494,11 @@ try:
                         for item_dict in ocorrencias_para_salvar:
                             item_dict['Categoria'] = st.session_state.get(f'categoria_selecionada_{reset_counter}')
 
-                        st.session_state.last_submission_details = ocorrencias_para_salvar
-
-                        # Limpar TODOS os campos do formulário (exceto last_submission_details e form_reset_counter)
-                        keys_to_preserve = {'last_submission_details', 'form_reset_counter'}
-                        keys_to_delete = [k for k in list(st.session_state.keys()) if k not in keys_to_preserve]
-                        for key in keys_to_delete:
-                            del st.session_state[key]
-
-                        # Incrementar contador para forçar recriação de todos os widgets
-                        st.session_state.form_reset_counter += 1
+                        # mantém só isto e remova o que vem depois
+                        st.session_state.last_submission_details = ocorrencias_para_salvar  # lista de dicts
+                        st.session_state.ui_phase = 'ready'
                         st.rerun()
 
-                except Exception as e:
-                    st.error(f"Ocorreu um erro ao salvar na Planilha Google: {e}")
-
-    # Render de cards de sucesso (após rerun)
-    if 'last_submission_details' in st.session_state and st.session_state.last_submission_details:
-        submitted_occurrences = st.session_state.last_submission_details
-        st.success(f"{len(submitted_occurrences)} ocorrência(s) adicionada(s) com sucesso!")
-        num_cols = 4
-        for i in range(0, len(submitted_occurrences), num_cols):
-            cols = st.columns(num_cols)
-            for j in range(num_cols):
-                if i + j < len(submitted_occurrences):
-                    with cols[j]:
-                        details = submitted_occurrences[i + j]
-                        data_ocor, hora_ocor = format_datetime_card(details.get('DESLIGAMENTO'))
-                        data_loop, hora_loop = format_datetime_card(details.get('ATENDIMENTO LOOP'))
-                        data_terc, hora_terc = format_datetime_card(details.get('ATENDIMENTO TERCEIROS'))
-                        data_norm, hora_norm = format_datetime_card(details.get('NORMALIZAÇÃO'))
-                        quantidade_html = ""
-                        if "QUANTIDADE" in details and details['QUANTIDADE'] and str(details['QUANTIDADE']).strip() != '':
-                            quantidade_html = f'<div class="card-item"><span class="card-label">Quantidade:</span> {details["QUANTIDADE"]}</div>'
-                        card_html = f"""
-                        <div class="card-container">
-                            <div class="card-title">{details.get("UG", "N/A")}</div>
-                            <div class="card-item"><span class="card-label">Categoria:</span> {details.get("Categoria", "")}</div>
-                            <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {details.get("TIPO DE OCORRÊNCIA", "")}</div>
-                            <div class="card-item"><span class="card-label">Ativo:</span> {details.get("ATIVO", "")}</div>
-                            <div class="card-item"><span class="card-label">Nome do ativo:</span> {details.get("NOME ATIVO", "")}</div>
-                            <div class="card-item"><span class="card-label">Ocorrência:</span> {details.get("OCORRÊNCIA", "")}</div>
-                            {quantidade_html}
-                            <br>
-                            <div class="card-item"><span class="card-label">Data da ocorrência:</span> {data_ocor}</div>
-                            <div class="card-item"><span class="card-label">Hora da ocorrência:</span> {hora_ocor}</div>
-                            <div class="card-item"><span class="card-label">Data do atendimento LOOP:</span> {data_loop}</div>
-                            <div class="card-item"><span class="card-label">Hora do atendimento LOOP:</span> {hora_loop}</div>
-                            <div class="card-item"><span class="card-label">Data do atendimento de terceiros:</span> {data_terc}</div>
-                            <div class="card-item"><span class="card-label">Hora do atendimento de terceiros:</span> {hora_terc}</div>
-                            <div class="card-item"><span class="card-label">Data de normalização:</span> {data_norm}</div>
-                            <div class="card-item"><span class="card-label">Hora de normalização:</span> {hora_norm}</div>
-                            <br>
-                            <div class="card-item"><span class="card-label">Descrição:</span> {str(details.get("DESCRIÇÃO", "")).replace('\n', '<br>')}</div>
-                            <div class="card-item"><span class="card-label">Protocolo:</span> {details.get("PROTOCOLO", "")}</div>
-                            <div class="card-item"><span class="card-label">OS:</span> {details.get("OS", "")}</div>
-                        </div>
-                        """
-                        st.html(card_html)
-        del st.session_state['last_submission_details']
 
 finally:
     overlay_off()
