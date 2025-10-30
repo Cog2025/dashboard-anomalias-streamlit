@@ -419,25 +419,94 @@ if not df.empty:
             if not (clicked_sel_dia or clicked_des_dia):
                 st.session_state.filtros_dias = [d for d in dias_disponiveis if st.session_state.get(f'cb_dia_{d}', False)]
 
-    # ------ opções + defaults canônicos (substitui "Filtros Adicionais") ------
+    # ------ Filtros Adicionais (5 colunas, com overlay e ações em massa) ------
+    st.subheader("Filtros Adicionais")
+
+    # Universo estável de opções (apenas resolvidas)
     df_ref = df[df['Normalização'].notna()].copy()
-    # Cliente
+
     cli_opts = options_from(df_ref['Cliente'])
-    st.session_state.filtros_clientes = [c for c in st.session_state.get('filtros_clientes', []) if c in cli_opts]
-    st.session_state.filtros_clientes = st.multiselect('Cliente', options=cli_opts, default=st.session_state.filtros_clientes)
-
-    # UG normalizada
     ugs_series = df_ref['UG'].astype(str).map(_collapse_spaces)
-    ug_opts = sorted([u for u in ugs_series.unique().tolist() if u and u != "-" and u != "0"])
-    st.session_state.filtros_ugs = [u for u in st.session_state.get('filtros_ugs', []) if u in ug_opts]
-    st.session_state.filtros_ugs = st.multiselect('UG', options=ug_opts, default=st.session_state.filtros_ugs)
-
-    # Tipo / Ocorrência / Ativo
+    ug_opts  = sorted([u for u in ugs_series.unique().tolist() if u and u != "-" and u != "0"])
     tip_opts = options_from(df_ref['Tipo de ocorrência']) if 'Tipo de ocorrência' in df_ref.columns else []
-    ocr_opts = options_from(df_ref['Ocorrência']) if 'Ocorrência' in df_ref.columns else []
-    atv_opts = options_from(df_ref['Ativo']) if 'Ativo' in df_ref.columns else []
-    for key, opts in [('filtros_tipos', tip_opts), ('filtros_ocorrencias', ocr_opts), ('filtros_ativos', atv_opts)]:
-        st.session_state[key] = [x for x in st.session_state.get(key, []) if x in opts]
+    ocr_opts = options_from(df_ref['Ocorrência'])         if 'Ocorrência'         in df_ref.columns else []
+    atv_opts = options_from(df_ref['Ativo'])              if 'Ativo'              in df_ref.columns else []
+
+    # Helper para setar filtro + overlay + rerun
+    def _set_filter_and_rerun(key, values):
+        start_loading()
+        st.session_state[key] = list(values)
+        st.rerun()
+
+    # Garanta que o estado só contenha valores válidos
+    st.session_state.filtros_clientes     = [x for x in st.session_state.get('filtros_clientes', [])     if x in cli_opts]
+    st.session_state.filtros_ugs          = [x for x in st.session_state.get('filtros_ugs', [])          if x in ug_opts]
+    st.session_state.filtros_tipos        = [x for x in st.session_state.get('filtros_tipos', [])        if x in tip_opts]
+    st.session_state.filtros_ocorrencias  = [x for x in st.session_state.get('filtros_ocorrencias', [])  if x in ocr_opts]
+    st.session_state.filtros_ativos       = [x for x in st.session_state.get('filtros_ativos', [])       if x in atv_opts]
+
+    col_cliente, col_ug, col_tipo, col_ativo, col_ocr = st.columns(5)
+
+    with col_cliente:
+        with st.container(border=True):
+            st.write("Cliente:")
+            c = st.columns(2)
+            c[0].button('Sel. Todos', key='cli_sel_all', use_container_width=True,
+                        on_click=_set_filter_and_rerun, args=('filtros_clientes', cli_opts))
+            c[1].button('Desmarcar', key='cli_clear', use_container_width=True,
+                        on_click=_set_filter_and_rerun, args=('filtros_clientes', []))
+            st.session_state.filtros_clientes = st.multiselect(
+                ' ', options=cli_opts, default=st.session_state.filtros_clientes, label_visibility='hidden'
+            )
+
+    with col_ug:
+        with st.container(border=True):
+            st.write("UG:")
+            c = st.columns(2)
+            c[0].button('Sel. Todos', key='ug_sel_all', use_container_width=True,
+                        on_click=_set_filter_and_rerun, args=('filtros_ugs', ug_opts))
+            c[1].button('Desmarcar', key='ug_clear', use_container_width=True,
+                        on_click=_set_filter_and_rerun, args=('filtros_ugs', []))
+            st.session_state.filtros_ugs = st.multiselect(
+                ' ', options=ug_opts, default=st.session_state.filtros_ugs, label_visibility='hidden'
+            )
+
+    with col_tipo:
+        with st.container(border=True):
+            st.write("Tipo de Ocorrência:")
+            c = st.columns(2)
+            c[0].button('Sel. Todos', key='tipo_sel_all', use_container_width=True,
+                        on_click=_set_filter_and_rerun, args=('filtros_tipos', tip_opts))
+            c[1].button('Desmarcar', key='tipo_clear', use_container_width=True,
+                        on_click=_set_filter_and_rerun, args=('filtros_tipos', []))
+            st.session_state.filtros_tipos = st.multiselect(
+                ' ', options=tip_opts, default=st.session_state.filtros_tipos, label_visibility='hidden'
+            )
+
+    with col_ativo:
+        with st.container(border=True):
+            st.write("Ativo:")
+            c = st.columns(2)
+            c[0].button('Sel. Todos', key='ativo_sel_all', use_container_width=True,
+                        on_click=_set_filter_and_rerun, args=('filtros_ativos', atv_opts))
+            c[1].button('Desmarcar', key='ativo_clear', use_container_width=True,
+                        on_click=_set_filter_and_rerun, args=('filtros_ativos', []))
+            st.session_state.filtros_ativos = st.multiselect(
+                ' ', options=atv_opts, default=st.session_state.filtros_ativos, label_visibility='hidden'
+            )
+
+    with col_ocr:
+        with st.container(border=True):
+            st.write("Ocorrência:")
+            c = st.columns(2)
+            c[0].button('Sel. Todos', key='ocr_sel_all', use_container_width=True,
+                        on_click=_set_filter_and_rerun, args=('filtros_ocorrencias', ocr_opts))
+            c[1].button('Desmarcar', key='ocr_clear', use_container_width=True,
+                        on_click=_set_filter_and_rerun, args=('filtros_ocorrencias', []))
+            st.session_state.filtros_ocorrencias = st.multiselect(
+                ' ', options=ocr_opts, default=st.session_state.filtros_ocorrencias, label_visibility='hidden'
+            )
+
 
     # --- Aplicação dos filtros + RESOLVIDAS ---
     meses_sel = [m for m in meses_cronologicos if st.session_state.get(f'cb_mes_{m}', False)]
