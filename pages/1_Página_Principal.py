@@ -15,7 +15,7 @@ st.set_page_config(layout="wide")
 
 # Estado do overlay
 if 'ui_phase' not in st.session_state:
-    st.session_state.ui_phase = 'ready'
+    st.session_state.ui_phase = 'init'
 if 'loading_ts' not in st.session_state:
     st.session_state.loading_ts = 0
 
@@ -51,6 +51,9 @@ def render_loading_overlay(ui_phase: str | None = None):
     """, unsafe_allow_html=True)
 
 
+# Desenhar overlay conforme estado
+render_loading_overlay(st.session_state.ui_phase)
+
 def overlay_on():
     st.session_state.ui_phase = 'loading'
     st.session_state.loading_ts = pytime.time()
@@ -62,14 +65,15 @@ def overlay_off():
     render_loading_overlay('ready')
 
 
-# Desenhar overlay conforme estado
-render_loading_overlay(st.session_state.ui_phase)
-
 def matches_any_canon(series: pd.Series, selected: list[str]) -> pd.Series:
     if not selected:
         return pd.Series([True]*len(series), index=series.index)
     sel_c = {canon(s) for s in selected if s and s != "-"}
     return series.astype(str).map(canon).isin(sel_c)
+
+def marcar_e_loading(prefixo_key, itens, filtro_key, marcar_todos, validos=None):
+    _marcar(prefixo_key, itens, filtro_key, marcar_todos, validos)
+    start_loading()
 
 
 # Primeira passada -> liga overlay e reroda
@@ -494,7 +498,8 @@ if not df_todos_dados.empty:
         options=["Ambas", "DESLIGAMENTOS", "EQUIPAMENTOS"],
         horizontal=True,
         label_visibility="collapsed",
-        key="categoria_top"   # sem index
+        key="categoria_top",
+        on_change=start_loading,   # <— adiciona
     )
 
     st.subheader("Selecione o período desejado")
@@ -527,10 +532,14 @@ if not df_todos_dados.empty:
                 for mes in meses_disponiveis:
                     st.checkbox(mes, key=f'cb_mes_{mes}', value=(mes in st.session_state.filtros_meses))
             col_botoes = st.columns(2)
-            clicked_sel_mes = col_botoes[0].button('Sel. Todos', key='sel_mes', use_container_width=True,
-                                                on_click=_marcar, args=('cb_mes_', meses_disponiveis, 'filtros_meses', True))
-            clicked_des_mes = col_botoes[1].button('Desmarcar', key='des_mes', use_container_width=True,
-                                                on_click=_marcar, args=('cb_mes_', meses_disponiveis, 'filtros_meses', False))
+            clicked_sel_mes = col_botoes[0].button(
+                'Sel. Todos', key='sel_mes', use_container_width=True,
+                on_click=marcar_e_loading, args=('cb_mes_', meses_disponiveis, 'filtros_meses', True)
+            )
+            clicked_des_mes = col_botoes[1].button(
+                'Desmarcar', key='des_mes', use_container_width=True,
+                on_click=marcar_e_loading, args=('cb_mes_', meses_disponiveis, 'filtros_meses', False)
+            )
             if not (clicked_sel_mes or clicked_des_mes):
                 st.session_state.filtros_meses = [m for m in meses_disponiveis if st.session_state.get(f'cb_mes_{m}', False)]
 
