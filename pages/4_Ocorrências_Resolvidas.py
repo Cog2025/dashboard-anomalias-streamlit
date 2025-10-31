@@ -133,10 +133,10 @@ st.markdown("""
   text-align: center;
   margin-bottom: 20px;
 }
-.kpi-value { font-size: 3em; font-weight: bold; color: #4b51ff; }
+.kpi-value { font-size: 3em; font-weight: bold; color: #4b4eff; }
 .kpi-label { font-size: 1.2em; color: #FFFFFF; }
 .card-container {
-  background-color: #FF4B4B;
+  background-color: #089641;
   color: white;
   padding: 15px;
   border-radius: 8px;
