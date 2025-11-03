@@ -499,7 +499,7 @@ if not df_todos_dados.empty:
         horizontal=True,
         label_visibility="collapsed",
         key="categoria_top",
-        on_change=start_loading,   # <— adiciona
+        on_change=start_loading,   # <— ok, mas não altere st.session_state aqui!
     )
 
     st.subheader("Selecione o período desejado")
