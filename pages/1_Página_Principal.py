@@ -13,6 +13,14 @@ from collections import Counter, defaultdict
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
 
+
+if 'categoria_top' not in st.session_state:
+    st.session_state['categoria_top'] = 'Ambas'
+
+if st.session_state['categoria_top'] not in ['Ambas', 'DESLIGAMENTOS', 'EQUIPAMENTOS']:
+    st.session_state['categoria_top'] = 'Ambas'
+
+
 # Estado do overlay
 if 'ui_phase' not in st.session_state:
     st.session_state.ui_phase = 'init'
@@ -489,9 +497,6 @@ def _marcar(prefixo_key: str, itens: list, filtro_key: str, marcar_todos: bool, 
 
 
 if not df_todos_dados.empty:
-    if 'categoria_top' not in st.session_state:
-        st.session_state['categoria_top'] = 'Ambas'   # inicializa só uma vez
-
     st.markdown("#### Filtrar por categoria (planilha)")
     st.radio(
         "Categoria:",
