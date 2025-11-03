@@ -81,7 +81,8 @@ def matches_any_canon(series: pd.Series, selected: list[str]) -> pd.Series:
 
 def marcar_e_loading(prefixo_key, itens, filtro_key, marcar_todos, validos=None):
     _marcar(prefixo_key, itens, filtro_key, marcar_todos, validos)
-    start_loading()
+    start_loading()  # sem st.rerun()
+
 
 
 # Primeira passada -> liga overlay e reroda
@@ -94,12 +95,12 @@ if st.session_state.ui_phase == 'init':
 def start_loading():
     st.session_state.ui_phase = 'loading'
     st.session_state.loading_ts = pytime.time()
-    st.rerun()
+    #st.rerun()
 
 def stop_loading():
     st.session_state.ui_phase = 'ready'
     st.session_state.loading_ts = 0
-    st.rerun()
+    #st.rerun()
 
 render_loading_overlay()
 if st.session_state.ui_phase == 'init':
@@ -381,7 +382,7 @@ df_todos_dados = carregar_dados_google_sheets(st.session_state.cache_buster)
 if st.session_state.ui_phase != 'ready':
     st.session_state.ui_phase = 'ready'
     st.session_state.loading_ts = 0
-    st.rerun()
+    render_loading_overlay('ready')  # reaplica CSS do overlay nesta execução
 
 
 
