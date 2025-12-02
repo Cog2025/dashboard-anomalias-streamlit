@@ -9,14 +9,13 @@ utils.init_overlay()
 
 st.title("Adicionar Nova Ocorrência")
 
-# CSS para botão verde
+# CSS botão
 st.markdown("""
 <style>
     .stButton > button { background-color: #28a745; color: white; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-# Carrega opções (Cacheado)
 @st.cache_data(ttl=60)
 def carregar_opcoes_adicao():
     try:
@@ -28,6 +27,7 @@ def carregar_opcoes_adicao():
         return {
             'df_dados': df_dados, 
             'df_detalhado': df_detalhado,
+            # Importante: Lists puras sem traços manuais, controlaremos no selectbox
             'clientes': sorted(utils.options_from(df_dados['CLIENTE'])),
             'ocorrencias': sorted(utils.options_from(df_dados['OCORRÊNCIA'])),
             'tipos': sorted(utils.options_from(df_dados['TIPO DE OCORRÊNCIA'])),
@@ -45,11 +45,10 @@ if not dados:
 
 if 'form_reset_counter' not in st.session_state:
     st.session_state.form_reset_counter = 0
-
 reset_counter = st.session_state.form_reset_counter
 
 # --- Formulário ---
-# CORREÇÃO AQUI: index=None e placeholder para forçar escolha
+# CORREÇÃO: index=None evita pré-seleção
 cat = st.selectbox(
     "Selecione a Categoria da Ocorrência", 
     [utils.SHEET_DESLIGAMENTOS, utils.SHEET_EQUIPAMENTOS], 
@@ -65,20 +64,19 @@ if not cat:
 col1, col2 = st.columns(2)
 
 with col1:
-    cli = st.selectbox("Cliente", dados['clientes'], key=f'cliente_select_{reset_counter}')
+    # CORREÇÃO: index=None em todos os campos chaves
+    cli = st.selectbox("Cliente", dados['clientes'], index=None, placeholder="Selecione...", key=f'cliente_select_{reset_counter}')
     
-    # Filtro Dinâmico de UGs
     op_ug = []
     if cli:
         df_d = dados['df_dados']
         op_ug = sorted(df_d[df_d['CLIENTE'] == cli]['UG'].unique().tolist())
     
-    ugs = st.multiselect("UGs", op_ug, key=f'ug_select_{reset_counter}')
-    tipo = st.selectbox("Tipo de Ocorrência", dados['tipos'], key=f'tipo_ocorrencia_{reset_counter}')
-    ativo = st.selectbox("Ativo", dados['ativos'], key=f'ativo_{reset_counter}')
+    ugs = st.multiselect("UGs", op_ug, placeholder="Escolha as UGs...", key=f'ug_select_{reset_counter}')
+    tipo = st.selectbox("Tipo de Ocorrência", dados['tipos'], index=None, placeholder="Selecione...", key=f'tipo_ocorrencia_{reset_counter}')
+    ativo = st.selectbox("Ativo", dados['ativos'], index=None, placeholder="Selecione...", key=f'ativo_{reset_counter}')
     
-    # Lógica de Ativos Detalhados
-    items_processar = ugs # Default
+    items_processar = ugs 
     if ativo in ['INVERSOR', 'TRACKER', 'STRING'] and ugs:
         df_det = dados['df_detalhado']
         df_filt = df_det[df_det['Usina'].isin(ugs)]
@@ -91,8 +89,8 @@ with col1:
     st.session_state['items_para_processar'] = items_processar
 
 with col2:
-    ocorr = st.selectbox("Ocorrência", dados['ocorrencias'], key=f'ocorrencia_{reset_counter}')
-    oper = st.selectbox("Operador", dados['operadores'], key=f'operador_{reset_counter}')
+    ocorr = st.selectbox("Ocorrência", dados['ocorrencias'], index=None, placeholder="Selecione...", key=f'ocorrencia_{reset_counter}')
+    oper = st.selectbox("Operador", dados['operadores'], index=None, placeholder="Selecione...", key=f'operador_{reset_counter}')
     desc = st.text_area("Descrição Detalhada", height=135, key=f'descricao_{reset_counter}')
     prot = st.text_input("Protocolo", key=f'protocolo_{reset_counter}')
     os_val = st.text_input("OS", key=f'os_input_{reset_counter}')
@@ -103,18 +101,15 @@ with col2:
 
 st.markdown("---")
 st.write("### Horários")
-# Simplificado para Data/Hora Master para todos os itens
 c_h = st.columns(4)
 data_des = c_h[0].date_input("Data Desligamento", key=f'data_des_master_{reset_counter}')
 hora_des = c_h[1].time_input("Hora Desligamento", key=f'hora_des_master_{reset_counter}')
 
-# --- Botão Salvar ---
 if st.button("Adicionar Ocorrência", type="primary", use_container_width=True):
-    # --- VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS ---
     erros = []
     if not cli: erros.append("Cliente")
-    if not ugs: erros.append("UGs") # Verifica seleção base
-    if not items_processar: erros.append("Itens (UGs ou Ativos)") # Verifica itens finais
+    if not ugs: erros.append("UGs") 
+    if not items_processar: erros.append("Itens (UGs ou Ativos)")
     if not tipo: erros.append("Tipo de Ocorrência")
     if not ativo: erros.append("Ativo")
     if not ocorr: erros.append("Ocorrência")
@@ -124,17 +119,13 @@ if st.button("Adicionar Ocorrência", type="primary", use_container_width=True):
     if erros:
         st.error(f"⚠️ Por favor, preencha: {', '.join(erros)}")
     else:
-        # Prossegue
         utils.overlay_on()
         try:
             client = utils.connect_to_google_sheets()
             ws = client.open_by_url(utils.SPREADSHEET_URL).worksheet(cat)
             
-            # Helper para encontrar a UG de um ativo (Inversor/Tracker)
             def find_ug(item_name):
-                # Se o item já é uma UG, retorna ele mesmo
                 if item_name in ugs: return item_name
-                # Se não, busca no detalhado
                 df_det = dados['df_detalhado']
                 for c in ['Inversor Conectado', 'Tracker Conectado', 'Nome String']:
                      if c in df_det.columns:
@@ -143,22 +134,17 @@ if st.button("Adicionar Ocorrência", type="primary", use_container_width=True):
                 return None
 
             linhas_para_adicionar = []
-            
-            # Mapeamento do Header da Planilha
             header = ws.row_values(1)
-            # Mapa: {NOME_COLUNA_UPPER: index}
             h_map = {h.strip().upper(): i for i, h in enumerate(header)}
             
             for item in items_processar:
                 ug_final = find_ug(item)
                 if not ug_final: continue
                 
-                # Busca Sigla
                 df_d = dados['df_dados']
                 row_cli = df_d[df_d['UG'] == ug_final]
                 sigla = row_cli['SIGLA'].iloc[0] if not row_cli.empty else ""
                 
-                # Monta objeto de dados
                 dados_row = {
                     'UG': ug_final,
                     'CLIENTE': cli,
@@ -175,7 +161,6 @@ if st.button("Adicionar Ocorrência", type="primary", use_container_width=True):
                     'DESLIGAMENTO': f"{data_des.strftime('%d/%m/%Y')} {hora_des.strftime('%H:%M:%S')}"
                 }
                 
-                # Cria array ordenado conforme colunas da planilha
                 linha = [''] * len(header)
                 for col_name, val in dados_row.items():
                     if col_name in h_map:
@@ -183,17 +168,36 @@ if st.button("Adicionar Ocorrência", type="primary", use_container_width=True):
                 
                 linhas_para_adicionar.append(linha)
             
-            # Append no Google Sheets
             if linhas_para_adicionar:
                 ws.append_rows(linhas_para_adicionar, value_input_option='USER_ENTERED')
                 
-                st.success(f"{len(linhas_para_adicionar)} ocorrências salvas!")
+                # Feedback de sucesso detalhado (similar ao Editar)
+                st.success(f"{len(linhas_para_adicionar)} ocorrência(s) adicionada(s)!")
+                
+                # Visualização em cards dos itens adicionados
+                st.write("---")
+                cols = st.columns(4)
+                for i, row_data in enumerate(linhas_para_adicionar):
+                    # Recupera dados para exibição basica
+                    ug_idx = h_map.get('UG')
+                    ocr_idx = h_map.get('OCORRÊNCIA')
+                    
+                    ug_val = row_data[ug_idx] if ug_idx < len(row_data) else "?"
+                    ocr_val = row_data[ocr_idx] if ocr_idx < len(row_data) else "?"
+                    
+                    with cols[i % 4]:
+                        st.markdown(f"""
+                        <div style="background-color:#28a745; padding:10px; border-radius:5px; margin-bottom:10px;">
+                            <b>{ug_val}</b><br>{ocr_val}
+                        </div>
+                        """, unsafe_allow_html=True)
+                
                 st.session_state.form_reset_counter += 1
+                pytime.sleep(3)
                 utils.overlay_off()
-                pytime.sleep(1)
                 st.rerun()
             else:
-                st.warning("Nenhum dado gerado para salvar.")
+                st.warning("Nenhum dado gerado.")
                 utils.overlay_off()
 
         except Exception as e:
