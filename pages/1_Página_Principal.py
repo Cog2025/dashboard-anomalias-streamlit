@@ -10,25 +10,31 @@ import utils
 # --- 1. Configuração ---
 st.set_page_config(layout="wide", page_title="Dashboard Ocorrências")
 
+# --- INICIALIZAÇÃO SEGURA DO ESTADO (CORREÇÃO DO ERRO) ---
+if 'ui_phase' not in st.session_state:
+    st.session_state['ui_phase'] = 'init'
+if 'loading_ts' not in st.session_state:
+    st.session_state['loading_ts'] = 0
 if 'categoria_top' not in st.session_state:
     st.session_state['categoria_top'] = 'Ambas'
 
-# Overlay
+# Renderiza Overlay
 utils.render_loading_overlay(st.session_state.get('ui_phase', 'ready'))
 
 def start_loading():
-    st.session_state.ui_phase = 'loading'
-    st.session_state.loading_ts = pytime.time()
+    st.session_state['ui_phase'] = 'loading'
+    st.session_state['loading_ts'] = pytime.time()
 
+# Lógica de Loading inicial
 if st.session_state.get('ui_phase') == 'init':
     start_loading()
 
-# Failsafe
+# Failsafe para destravar loading
 if st.session_state.get('ui_phase') == 'loading' and (pytime.time() - st.session_state.get('loading_ts', 0)) > 5:
-    st.session_state.ui_phase = 'ready'
-    st.session_state.loading_ts = 0
+    st.session_state['ui_phase'] = 'ready'
+    st.session_state['loading_ts'] = 0
 
-# --- Helpers de Texto (Lógica Original) ---
+# --- Helpers de Texto ---
 def _collapse_spaces(s: str) -> str:
     return " ".join(str(s).split())
 
@@ -49,7 +55,6 @@ def build_display_map(series: pd.Series) -> dict:
     return display_map
 
 def options_from(series: pd.Series) -> list:
-    # Restaura lógica original que inclui o traço "-" e trata vazios
     series = series.astype(str).map(_collapse_spaces)
     series = series[series != ""]
     dmap = build_display_map(series)
@@ -77,7 +82,7 @@ meses_traducao = {
 }
 meses_cronologicos = list(meses_traducao.values())
 
-# --- CSS (Mantendo botões verdes e cards originais) ---
+# --- CSS ---
 st.markdown("""
 <style>
     .stButton > button {
@@ -109,7 +114,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Carregamento de Dados (Lógica Original Restaurada) ---
+# --- Carregamento de Dados ---
 @st.cache_data(ttl=600)
 def carregar_dados_google_sheets(cache_buster: int = 0):
     try:
@@ -120,7 +125,6 @@ def carregar_dados_google_sheets(cache_buster: int = 0):
         df_desligamentos = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_DESLIGAMENTOS))
         df_equipamentos = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_EQUIPAMENTOS))
 
-        # Conversão de identificador para garantir merge correto
         if 'IDENTIFICADOR' in df_desligamentos.columns:
             df_desligamentos['IDENTIFICADOR'] = df_desligamentos['IDENTIFICADOR'].astype(str)
         if 'IDENTIFICADOR' in df_equipamentos.columns:
@@ -145,7 +149,6 @@ def carregar_dados_google_sheets(cache_buster: int = 0):
         df_todos.rename(columns=renomear, inplace=True)
         df_todos.fillna('', inplace=True)
         
-        # Filtro original de linhas vazias (Restaurado)
         if 'Cliente' in df_todos.columns:
             df_todos = df_todos[(df_todos['Cliente'] != '') & (df_todos['UG'] != '')]
 
@@ -175,19 +178,19 @@ def carregar_dados_google_sheets(cache_buster: int = 0):
 if 'cache_buster' not in st.session_state:
     st.session_state.cache_buster = int(pytime.time())
 
-if st.session_state.ui_phase == 'init':
-    st.session_state.ui_phase = 'loading'
-    st.session_state.loading_ts = pytime.time()
+if st.session_state.get('ui_phase') == 'init':
+    st.session_state['ui_phase'] = 'loading'
+    st.session_state['loading_ts'] = pytime.time()
     st.rerun()
 
 df_todos_dados = carregar_dados_google_sheets(st.session_state.cache_buster)
 
-if st.session_state.ui_phase == 'loading' and (pytime.time() - st.session_state.loading_ts) > 0.5:
-    st.session_state.ui_phase = 'ready'
-    st.session_state.loading_ts = 0
+if st.session_state.get('ui_phase') == 'loading' and (pytime.time() - st.session_state.get('loading_ts', 0)) > 0.5:
+    st.session_state['ui_phase'] = 'ready'
+    st.session_state['loading_ts'] = 0
     utils.render_loading_overlay('ready')
 
-# KPIs Superiores (Mantidos originais)
+# KPIs Superiores
 count_deslig = df_todos_dados[(df_todos_dados['Categoria'] == 'DESLIGAMENTOS') & (pd.isna(df_todos_dados['Normalização']) | (df_todos_dados['Normalização'] == ''))].shape[0] if not df_todos_dados.empty else 0
 count_equip = df_todos_dados[(df_todos_dados['Categoria'] == 'EQUIPAMENTOS') & (pd.isna(df_todos_dados['Normalização']) | (df_todos_dados['Normalização'] == ''))].shape[0] if not df_todos_dados.empty else 0
 
@@ -206,19 +209,17 @@ with st.sidebar:
     
     if st.button("🔄 Atualizar Dados"):
         st.cache_data.clear()
-        st.session_state.ui_phase = 'init'
+        st.session_state['ui_phase'] = 'init'
         st.rerun()
     
     st.markdown("---")
     
-    # Categoria
     st.markdown("**Categoria**")
     st.radio("Categoria:", ["Ambas", "DESLIGAMENTOS", "EQUIPAMENTOS"], horizontal=True, key="categoria_top", on_change=start_loading, label_visibility="collapsed")
     
     st.markdown("---")
     st.markdown("**Período**")
 
-    # Inicialização Filtros
     if 'filtros_meses' not in st.session_state: st.session_state.filtros_meses = [meses_cronologicos[datetime.now().month - 1]]
     if 'filtros_anos' not in st.session_state:
         anos = sorted(df_todos_dados['Ano'].unique().tolist()) if not df_todos_dados.empty else []
@@ -226,10 +227,9 @@ with st.sidebar:
 
     anos_disp = sorted([a for a in df_todos_dados['Ano'].unique() if a != 0]) if not df_todos_dados.empty else []
 
-    # 1. ANOS (Sidebar Expander)
+    # 1. ANOS
     with st.expander("📅 Anos", expanded=True):
         if anos_disp:
-            # Checkboxes individuais (lógica original)
             for ano in anos_disp:
                 st.checkbox(str(ano), key=f'cb_ano_{ano}', value=(ano in st.session_state.filtros_anos))
             
@@ -237,12 +237,11 @@ with st.sidebar:
             b1.button('Sel. Todos', key='sel_ano', on_click=marcar_e_loading, args=('cb_ano_', anos_disp, 'filtros_anos', True))
             b2.button('Desmarcar', key='des_ano', on_click=marcar_e_loading, args=('cb_ano_', anos_disp, 'filtros_anos', False))
             
-            # Sincroniza lista com checkboxes
             st.session_state.filtros_anos = [a for a in anos_disp if st.session_state.get(f'cb_ano_{a}', False)]
         else:
             st.write("Sem dados.")
 
-    # 2. MESES (Sidebar Expander)
+    # 2. MESES
     with st.expander("📆 Meses", expanded=False):
         for mes in meses_cronologicos:
             st.checkbox(mes, key=f'cb_mes_{mes}', value=(mes in st.session_state.filtros_meses))
@@ -253,7 +252,7 @@ with st.sidebar:
         
         st.session_state.filtros_meses = [m for m in meses_cronologicos if st.session_state.get(f'cb_mes_{m}', False)]
 
-    # 3. DIAS (Sidebar Expander)
+    # 3. DIAS
     with st.expander("numeric Dias", expanded=False):
         if 'filtros_dias' not in st.session_state: st.session_state.filtros_dias = []
         
@@ -280,16 +279,12 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("**Filtros Adicionais**")
 
-    # Inicializa
     for k in ['filtros_clientes', 'filtros_ugs', 'filtros_tipos', 'filtros_ativos', 'filtros_ocorrencias']:
         if k not in st.session_state: st.session_state[k] = []
 
     def render_sidebar_multiselect(label, key, options, sel_key, des_key):
         with st.expander(label):
-            # Lógica original: options_from já inclui o traço "-"
-            # Removemos o traço apenas para o multiselect ficar limpo visualmente, mas mantemos a logica
             opts_clean = [o for o in options if o != "-"]
-            
             b1, b2 = st.columns(2)
             if b1.button('Sel. Todos', key=sel_key):
                  st.session_state[key] = opts_clean
@@ -298,13 +293,11 @@ with st.sidebar:
                  st.session_state[key] = []
                  st.rerun()
             
-            # Filtra defaults validos
             valid_defaults = [x for x in st.session_state[key] if x in opts_clean]
             st.session_state[key] = st.multiselect("Selecione", opts_clean, default=valid_defaults, key=f"ms_{key}", label_visibility="collapsed")
 
     if not df_todos_dados.empty:
         cli_opts = options_from(df_todos_dados['Cliente'])
-        # UG original não usa options_from, usa sorted list
         ug_opts = sorted([u for u in df_todos_dados['UG'].unique().tolist() if u]) 
         
         render_sidebar_multiselect("Clientes", 'filtros_clientes', cli_opts, 'sel_cli', 'des_cli')
@@ -314,7 +307,7 @@ with st.sidebar:
         render_sidebar_multiselect("Ocorrência", 'filtros_ocorrencias', options_from(df_todos_dados['Ocorrência']), 'sel_ocr', 'des_ocr')
 
 # ==============================================================================
-# --- ÁREA PRINCIPAL (Aplicação Filtros e Dados) ---
+# --- MAIN AREA ---
 # ==============================================================================
 
 m_ano = df_todos_dados['Ano'].isin(st.session_state.filtros_anos)
@@ -329,7 +322,7 @@ m_cli = matches_any_canon(df_todos_dados['Cliente'], st.session_state.filtros_cl
 m_ug = df_todos_dados['UG'].isin(st.session_state.filtros_ugs) if st.session_state.filtros_ugs else pd.Series([True]*len(df_todos_dados))
 m_tip = matches_any_canon(df_todos_dados['Tipo de ocorrência'], st.session_state.filtros_tipos)
 m_atv = matches_any_canon(df_todos_dados['Ativo'], st.session_state.filtros_ativos)
-m_ocr = matches_any_canon(df_todos['Ocorrência'], st.session_state.filtros_ocorrencias)
+m_ocr = matches_any_canon(df_todos_dados['Ocorrência'], st.session_state.filtros_ocorrencias)
 
 df_filt = df_todos_dados[m_cat & m_ano & m_mes & m_dia & m_cli & m_ug & m_tip & m_atv & m_ocr].copy()
 df_abertas = df_filt[pd.isna(df_filt['Normalização']) | (df_filt['Normalização'] == '')].copy()
@@ -350,55 +343,44 @@ if not df_abertas.empty:
     df_abertas.loc[~mask_valid, 'Tempo em Segundos'] = 0
 
     st.markdown("---")
-    
-    # Ordenação
-    col_ctrl1, col_ctrl2 = st.columns([2, 2])
-    with col_ctrl1:
+    c1, c2 = st.columns([2, 2])
+    with c1:
         sort_by = st.selectbox("Ordenar por:", ["Data do Desligamento", "Tempo de Desligamento", "UG", "Ativo"])
-    with col_ctrl2:
+    with c2:
         sort_order = st.radio("Ordem:", ["Descendente", "Ascendente"], horizontal=True)
     
     asc = sort_order == "Ascendente"
     col_map = {'Data do Desligamento': 'Desligamento', 'Tempo de Desligamento': 'Tempo em Segundos', 'UG': 'UG', 'Ativo': 'Ativo'}
     df_sorted = df_abertas.sort_values(by=col_map[sort_by], ascending=asc)
 
-    # Seletor de Edição
+    # Seletor Edição
     df_sorted['Display'] = (
         df_sorted['UG'].astype(str) + " | " + df_sorted['Ativo'].astype(str) + " | " +
         df_sorted['Nome Ativo'].astype(str) + " | " + df_sorted['Ocorrência'].astype(str) + " | " +
         df_sorted['Desligamento'].dt.strftime('%d/%m/%Y %H:%M').fillna('') + 
         "  ·  " + df_sorted['ID_Unico'].astype(str).str[-6:]
     )
-    
     st.session_state['df_lista_para_editar'] = df_sorted.copy()
     
     st.markdown("### Editar Ocorrência")
-    opts = df_sorted['Display'].tolist()
-    sel = st.selectbox("Selecione na lista abaixo:", options=opts, index=None, placeholder="Escolha uma ocorrência para editar...")
-    
+    sel = st.selectbox("Selecione na lista abaixo:", df_sorted['Display'].tolist(), index=None, placeholder="Escolha uma ocorrência para editar...")
     if sel:
-            id_unico = df_sorted.loc[df_sorted['Display'] == sel, 'ID_Unico'].values[0]
-            st.session_state['id_unico_para_editar'] = id_unico
-    elif 'id_unico_para_editar' in st.session_state:
-            st.session_state.pop('id_unico_para_editar')
+        st.session_state['id_unico_para_editar'] = df_sorted.loc[df_sorted['Display'] == sel, 'ID_Unico'].values[0]
     
     if st.button("📝 Ir para Edição", disabled=not bool(sel)):
-            st.switch_page("pages/3_Editar_Ocorrência.py")
+        st.switch_page("pages/3_Editar_Ocorrência.py")
 
-    # Tabela
+    # Tabela e Cards
     st.markdown("### Lista de Ocorrências")
     def fmt_tempo(row):
         s = row['Tempo em Segundos']
-        d, r = divmod(s, 86400)
-        h, r = divmod(r, 3600)
-        m, s = divmod(r, 60)
+        d, r = divmod(s, 86400); h, r = divmod(r, 3600); m, s = divmod(r, 60)
         return f"{int(d)}d {int(h)}h {int(m)}m"
     
     df_tab = df_sorted.copy()
     df_tab['Tempo de Desligamento'] = df_tab.apply(fmt_tempo, axis=1)
     st.dataframe(df_tab[['Categoria', 'Tempo de Desligamento', 'UG', 'Data', 'Hora', 'Tipo de ocorrência', 'Ativo', 'Ocorrência', 'Operador', 'Descrição', 'OS']], use_container_width=True)
 
-    # Cards (RESTAURADO HTML COMPLETO)
     st.markdown("### Detalhes (Cards)")
     num_cols = 4
     rows = list(df_sorted.iterrows())
@@ -424,7 +406,6 @@ if not df_abertas.empty:
                     desc = html.escape(str(r.get("Descrição", ""))).replace('\n', '<br>')
                     prot = html.escape(str(r.get("Protocolo", "")))
                     osv = html.escape(str(r.get("OS", "")))
-                    
                     d_des, h_des = fmt_dt(r.get('Desligamento'))
                     d_norm, h_norm = fmt_dt(r.get('Normalização'))
                     d_ca, h_ca = fmt_dt(r.get('Cliente Avisado'))
