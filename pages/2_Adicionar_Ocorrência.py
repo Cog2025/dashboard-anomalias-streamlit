@@ -384,19 +384,41 @@ try:
     st.markdown("---")
     if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
 
-        def find_ug_for_ativo(ativo_nome, df_detalhado_cache, ugs_filtradas):
-            df_filtrado = df_detalhado_cache[df_detalhado_cache['Usina'].isin(ugs_filtradas)]
-            for col_name in ['Inversor Conectado', 'Tracker Conectado', 'Nome String']:
-                if col_name in df_filtrado.columns:
-                    match = df_filtrado[df_filtrado[col_name] == ativo_nome]
-                    if not match.empty:
-                        return match['Usina'].iloc[0]
-            return None
+        # --- VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS ---
+        campos_obrigatorios = {
+            'Cliente': st.session_state.get(f'cliente_select_{reset_counter}'),
+            'Tipo de Ocorrência': st.session_state.get(f'tipo_ocorrencia_{reset_counter}'),
+            'Ativo': st.session_state.get(f'ativo_{reset_counter}'),
+            'Ocorrência': st.session_state.get(f'ocorrencia_{reset_counter}'),
+            'Operador': st.session_state.get(f'operador_{reset_counter}'),
+            'Descrição Detalhada': st.session_state.get(f'descricao_{reset_counter}')
+        }
 
+        # Verifica campos vazios ou com valor padrão '-'
+        erros = []
+        for nome_campo, valor in campos_obrigatorios.items():
+            if not valor or str(valor).strip() == "" or str(valor).strip() == "-":
+                erros.append(nome_campo)
+        
+        # Verifica se UG/Ativos foram selecionados
         iter_list = st.session_state.get('items_para_processar', [])
         if not iter_list:
-            st.error("Por favor, selecione uma ou mais UGs ou Nomes de Ativo.")
+            erros.append("UG / Nome do Ativo")
+
+        if erros:
+            st.error(f"⚠️ Por favor, preencha os seguintes campos obrigatórios antes de salvar: {', '.join(erros)}")
+            # Para a execução aqui se houver erros
         else:
+            # --- SE PASSOU NA VALIDAÇÃO, PROSEGUE COM SALVAMENTO ---
+            def find_ug_for_ativo(ativo_nome, df_detalhado_cache, ugs_filtradas):
+                df_filtrado = df_detalhado_cache[df_detalhado_cache['Usina'].isin(ugs_filtradas)]
+                for col_name in ['Inversor Conectado', 'Tracker Conectado', 'Nome String']:
+                    if col_name in df_filtrado.columns:
+                        match = df_filtrado[df_filtrado[col_name] == ativo_nome]
+                        if not match.empty:
+                            return match['Usina'].iloc[0]
+                return None
+
             ocorrencias_para_salvar = []
             ativo_selecionado = st.session_state.get(f'ativo_{reset_counter}')
             ugs_selecionadas_no_form = st.session_state.get(f'ug_select_{reset_counter}', [])
@@ -500,8 +522,6 @@ try:
 
                 except Exception as e:
                     st.error(f"Ocorreu um erro ao salvar na Planilha Google: {e}")
-
-
 
 finally:
     overlay_off()

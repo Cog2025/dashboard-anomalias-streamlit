@@ -1,21 +1,29 @@
-# Ignorar o arquivo de credenciais do Google (MAIS IMPORTANTE!)
+# --- Credenciais e Segredos (CRÍTICO) ---
 google_credentials.json
+secrets.txt
+.env
 
-# Ignorar pastas de ambiente virtual do Python
+# --- Streamlit ---
+# Ignora apenas os segredos, mas permite subir configurações de tema (config.toml)
+.streamlit/secrets.toml
+
+# Caso queira ignorar a pasta inteira (como estava antes), descomente a linha abaixo:
+# .streamlit/
+
+# --- Python e Ambientes Virtuais ---
+__pycache__/
+*.pyc
 venv/
 .venv/
 env/
-.env
 
-# Ignorar caches e arquivos compilados do Python
-__pycache__/
-*.pyc
-
-# Ignorar caches do Streamlit
-.streamlit/
-
-# Ignorar arquivos de configuração do Windows
+# --- Arquivos de Sistema Operacional ---
 desktop.ini
+.DS_Store
 
+# --- IDEs (VS Code, PyCharm, etc) ---
+.vscode/
+.idea/
 
-secrets.txt
+#arquivo excel
+Aviso de Anomalias 2025.xlsx
