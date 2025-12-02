@@ -1,6 +1,4 @@
 import os
-from webdav3.client import Client  # opcional se não usa aqui
-import io                          # opcional se não usa aqui
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -9,8 +7,8 @@ import html
 import gspread
 from google.oauth2.service_account import Credentials
 import re
-import unicodedata
 from collections import Counter, defaultdict
+import utils # [MODIFICADO]
 
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
@@ -21,35 +19,8 @@ if 'ui_phase' not in st.session_state:
 if 'loading_ts' not in st.session_state:
     st.session_state.loading_ts = 0
 
-def render_loading_overlay(ui_phase: str | None = None):
-    phase = ui_phase or st.session_state.get('ui_phase', 'ready')
-    display = 'flex' if phase == 'loading' else 'none'
-    st.markdown(f"""
-    <style>
-      #__overlay__ {{
-        position: fixed; inset: 0;
-        display: {display};
-        align-items: center; justify-content: center;
-        z-index: 10000;
-        background: rgba(0,0,0,0);
-        animation: bgIn 0s linear 0.25s forwards;
-      }}
-      .loader {{
-        width: 64px; height: 64px; border-radius: 50%;
-        border: 6px solid rgba(255,255,255,.25);
-        border-top-color: #FF4B4B;
-        animation: spin 1s linear infinite, appear 0s linear 0.25s forwards;
-        opacity: 0;
-      }}
-      @keyframes appear {{ to {{ opacity: 1; }} }}
-      @keyframes bgIn   {{ to {{ background: rgba(0,0,0,.55); }} }}
-      @keyframes spin   {{ to {{ transform: rotate(360deg); }} }}
-    </style>
-    <div id="__overlay__"><div class="loader"></div></div>
-    """, unsafe_allow_html=True)
-
-# Injetar overlay no DOM o quanto antes
-render_loading_overlay(st.session_state.ui_phase)
+# [MODIFICADO] Utils
+utils.render_loading_overlay(st.session_state.ui_phase)
 
 # Promover init -> loading na 1ª passada e rerodar
 if st.session_state.ui_phase == 'init':
@@ -57,16 +28,16 @@ if st.session_state.ui_phase == 'init':
     st.session_state.loading_ts = pytime.time()
     st.rerun()
 
-# Helpers (chame-os nos gatilhos pesados)
+# Helpers
 def start_loading():
     st.session_state.ui_phase = 'loading'
     st.session_state.loading_ts = pytime.time()
-    render_loading_overlay('loading')
+    utils.render_loading_overlay('loading')
 
 def stop_loading():
     st.session_state.ui_phase = 'ready'
     st.session_state.loading_ts = 0
-    render_loading_overlay('ready')
+    utils.render_loading_overlay('ready')
 
 def marcar_loading(prefixo_key, itens, filtro_key, marcar_todos, validos=None):
     start_loading()
@@ -84,12 +55,10 @@ def canon(s) -> str:
         return ""
     s = str(s)
     s = _collapse_spaces(s)
-    # case-insensitive robusto
     s = s.casefold()
     return s
 
 def build_display_map(series: pd.Series) -> dict:
-    # mapeia forma canônica -> rótulo preferido (mais frequente)
     buckets = defaultdict(Counter)
     for v in series.dropna():
         v_str = _collapse_spaces(str(v))
@@ -98,23 +67,21 @@ def build_display_map(series: pd.Series) -> dict:
         buckets[canon(v_str)][v_str] += 1
     display_map = {}
     for ckey, counter in buckets.items():
-        # rótulo preferido = o mais frequente
         best, _ = counter.most_common(1)[0]
         display_map[ckey] = best
     return display_map
 
-def options_from(series: pd.Series) -> list[str]:
+def options_from(series: pd.Series) -> list:
     ser = series.astype(str).map(_collapse_spaces)
     ser = ser[(ser != "") & (ser != "-") & (ser != "0")]
     return sorted(ser.unique().tolist())
 
-def matches_any_canon(series: pd.Series, selected: list[str]) -> pd.Series:
+def matches_any_canon(series: pd.Series, selected: list) -> pd.Series:
     if not selected:
         return pd.Series([True] * len(series), index=series.index)
     ser = series.astype(str).map(_collapse_spaces)
     return ser.isin(set(selected))
 
-# --- 2. Dicionário para tradução dos meses (mesmo da página principal) ---
 meses_traducao = {
     'January': 'Janeiro', 'February': 'Fevereiro', 'March': 'Março',
     'April': 'Abril', 'May': 'Maio', 'June': 'Junho',
@@ -123,7 +90,7 @@ meses_traducao = {
 }
 meses_cronologicos = list(meses_traducao.values())
 
-# --- 3. CSS essencial (reaproveita classes usadas na principal) ---
+# --- 3. CSS (Original) ---
 st.markdown("""
 <style>
 .kpi-card {
@@ -154,46 +121,20 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 4. Carregar e Tratar os Dados (mesmo pipeline da principal) ---
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
-]
-CREDS_FILE = "google_credentials.json"
-PLANILHA_NOME_1 = "DESLIGAMENTOS"
-PLANILHA_NOME_2 = "EQUIPAMENTOS"
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
-
-@st.cache_resource(ttl=600)
-def connect_to_google_sheets():
-    if os.path.exists(CREDS_FILE):
-        creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
-    else:
-        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPES)
-    client = gspread.authorize(creds)
-    return client
-
-def fetch_sheet_as_df(worksheet):
-    data = worksheet.get_all_values()
-    if not data:
-        return pd.DataFrame()
-    headers = [header.strip() for header in data.pop(0)]
-    return pd.DataFrame(data, columns=headers)
+# --- 4. Carregar e Tratar os Dados ---
 
 @st.cache_data(ttl=600)
 def carregar_dados_google_sheets(cache_buster: int = 0):
     try:
-        client = connect_to_google_sheets()
-        workbook = client.open_by_url(SPREADSHEET_URL)
+        client = utils.connect_to_google_sheets() # [MODIFICADO] Utils
+        workbook = client.open_by_url(utils.SPREADSHEET_URL)
 
-        df_desligamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_1))
-        df_equipamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_2))
+        df_desligamentos = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_DESLIGAMENTOS))
+        df_equipamentos = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_EQUIPAMENTOS))
 
-        # marca categorias
         df_desligamentos['Categoria'] = 'DESLIGAMENTOS'
         df_equipamentos['Categoria']  = 'EQUIPAMENTOS'
 
-        # concat e renomeação igual à principal
         df_todos = pd.concat([df_desligamentos, df_equipamentos], ignore_index=True)
 
         mapa_renomear = {
@@ -212,12 +153,10 @@ def carregar_dados_google_sheets(cache_buster: int = 0):
         df_todos.rename(columns=renomear_final, inplace=True)
         df_todos.fillna('', inplace=True)
 
-        # coerção de datas
         for c in ['Normalização','Desligamento','Atendimento Loop','Atendimento Terceiros','Cliente Avisado']:
             if c in df_todos.columns:
                 df_todos[c] = pd.to_datetime(df_todos[c], errors='coerce')
 
-        # enriquecimento igual à principal
         if 'Desligamento' in df_todos.columns and not df_todos['Desligamento'].isnull().all():
             df_todos['Data'] = df_todos['Desligamento'].dt.strftime('%Y-%m-%d')
             df_todos['Hora'] = df_todos['Desligamento'].dt.strftime('%H:%M:%S')
@@ -234,7 +173,6 @@ def carregar_dados_google_sheets(cache_buster: int = 0):
             for c in ['Data','Hora','Mês','Ano','Dia','ID_Unico']:
                 df_todos[c] = None
 
-        # garantir tipos de texto
         for c in ['Operador','Descrição','OS','Protocolo']:
             if c in df_todos.columns:
                 df_todos[c] = df_todos[c].astype(str).fillna('')
@@ -249,8 +187,6 @@ if 'cache_buster' not in st.session_state:
     st.session_state.cache_buster = int(pytime.time())
 
 df = carregar_dados_google_sheets(st.session_state.cache_buster)
-
-
 df['Desligamento'] = pd.to_datetime(df['Desligamento'], errors='coerce')
 
 # --- 5. KPIs do topo (RESOLVIDAS) ---
@@ -269,7 +205,6 @@ with st.container(border=True):
 # --- 6. Filtros (idênticos à principal) ---
 st.header('OCORRÊNCIAS FILTRADAS')
 
-# Inicialização de estados (mesmo padrão da principal)
 if 'filtros_meses' not in st.session_state:
     st.session_state.filtros_meses = [meses_traducao[datetime.now().strftime('%B')]]
 if 'filtros_anos' not in st.session_state:
@@ -298,7 +233,6 @@ if 'filtros_ativos' not in st.session_state:
 if 'filtros_ocorrencias' not in st.session_state:
     st.session_state.filtros_ocorrencias = sorted(df['Ocorrência'].unique().tolist()) if not df.empty else []
 
-# KPI esquerdo: total resolvidas no banco completo
 col_kpi1, col_kpi2 = st.columns(2)
 with col_kpi1:
     total_resolvidas_banco = df[~df['Normalização'].isna()].shape[0]
@@ -309,7 +243,6 @@ with col_kpi1:
     </div>
     """, unsafe_allow_html=True)
 
-# Botão de atualizar (mesmo padrão)
 col_left, _ = st.columns([0.2, 0.8])
 with col_left:
     if st.button("Atualizar Dados"):
@@ -318,8 +251,6 @@ with col_left:
         st.session_state.cache_buster = int(pytime.time())
         st.rerun()
 
-
-# Helper para marcar/desmarcar checkboxes em massa
 def _marcar(prefixo_key: str, itens: list, filtro_key: str, marcar_todos: bool, validos: set | None = None):
     validos = set(itens) if validos is None else set(validos)
     st.session_state[filtro_key] = [x for x in itens if (x in validos) and marcar_todos]
@@ -337,9 +268,8 @@ if not df.empty:
         horizontal=True,
         label_visibility="collapsed",
         key="categoria_top",
-        on_change=start_loading,   # <- novo
+        on_change=start_loading,
     )
-
 
     st.subheader("Selecione o período desejado")
     anos_disponiveis = sorted([a for a in df['Ano'].unique() if a != 0])
@@ -347,7 +277,6 @@ if not df.empty:
 
     col_ano, col_mes, col_dia = st.columns(3)
 
-    # Ano(s)
     with col_ano:
         with st.container(border=True):
             st.write("### Ano(s):")
@@ -366,7 +295,6 @@ if not df.empty:
             if not (clicked_sel_ano or clicked_des_ano):
                 st.session_state.filtros_anos = [a for a in anos_disponiveis if st.session_state.get(f'cb_ano_{a}', False)]
 
-    # Mês(es)
     with col_mes:
         with st.container(border=True):
             st.write("### Mês(es):")
@@ -385,17 +313,14 @@ if not df.empty:
             if not (clicked_sel_mes or clicked_des_mes):
                 st.session_state.filtros_meses = [m for m in meses_disponiveis if st.session_state.get(f'cb_mes_{m}', False)]
 
-    # Seleções atuais de Ano/Mês (usadas para dias dinâmicos)
     anos_sel  = [a for a in anos_disponiveis  if st.session_state.get(f'cb_ano_{a}', False)]
     meses_sel = [m for m in meses_disponiveis if st.session_state.get(f'cb_mes_{m}', False)]
 
-    # Dias disponíveis dinâmicos, coerentes com Ano/Mês selecionados
     dias_disponiveis = sorted(
         df[(df['Ano'].isin(anos_sel)) & (df['Mês'].isin(meses_sel))]['Dia']
         .dropna().astype(int).loc[lambda s: s.gt(0)].unique().tolist()
     ) or list(range(1, 32))
 
-    # Dia(s)
     with col_dia:
         with st.container(border=True):
             st.write("### Dia(s):")
@@ -419,10 +344,8 @@ if not df.empty:
             if not (clicked_sel_dia or clicked_des_dia):
                 st.session_state.filtros_dias = [d for d in dias_disponiveis if st.session_state.get(f'cb_dia_{d}', False)]
 
-    # ------ Filtros Adicionais (5 colunas, com overlay e ações em massa) ------
     st.subheader("Filtros Adicionais")
 
-    # Universo estável de opções (apenas resolvidas)
     df_ref = df[df['Normalização'].notna()].copy()
 
     cli_opts = options_from(df_ref['Cliente'])
@@ -432,13 +355,11 @@ if not df.empty:
     ocr_opts = options_from(df_ref['Ocorrência'])         if 'Ocorrência'         in df_ref.columns else []
     atv_opts = options_from(df_ref['Ativo'])              if 'Ativo'              in df_ref.columns else []
 
-    # Helper para setar filtro + overlay + rerun
     def _set_filter_and_rerun(key, values):
         start_loading()
         st.session_state[key] = list(values)
         st.rerun()
 
-    # Garanta que o estado só contenha valores válidos
     st.session_state.filtros_clientes     = [x for x in st.session_state.get('filtros_clientes', [])     if x in cli_opts]
     st.session_state.filtros_ugs          = [x for x in st.session_state.get('filtros_ugs', [])          if x in ug_opts]
     st.session_state.filtros_tipos        = [x for x in st.session_state.get('filtros_tipos', [])        if x in tip_opts]
@@ -507,7 +428,6 @@ if not df.empty:
                 ' ', options=ocr_opts, default=st.session_state.filtros_ocorrencias, label_visibility='hidden'
             )
 
-
     # --- Aplicação dos filtros + RESOLVIDAS ---
     meses_sel = [m for m in meses_cronologicos if st.session_state.get(f'cb_mes_{m}', False)]
     anos_sel  = [a for a in anos_disponiveis      if st.session_state.get(f'cb_ano_{a}', False)]
@@ -541,15 +461,12 @@ if not df.empty:
     df_filtrado   = df[m_final].copy()
     df_resolvidas = df_filtrado[~df_filtrado['Normalização'].isna()].copy()
 
-
     if st.session_state.ui_phase == 'loading':
         st.session_state.ui_phase = 'ready'
         st.session_state.loading_ts = 0
-        render_loading_overlay('ready')  # opcional, para garantir CSS em estado 'ready'
+        utils.render_loading_overlay('ready')
         st.rerun()
 
-
-    # KPI direito: total resolvidas com filtro
     with col_kpi2:
         st.markdown(f"""
         <div class="kpi-card">
@@ -558,9 +475,7 @@ if not df.empty:
         </div>
         """, unsafe_allow_html=True)
 
-    # Lista e cards
     if not df_resolvidas.empty:
-        # Ordenação
         st.markdown("---")
         st.write("### Ordenar e Exibir")
         sort_cols = st.columns(2)
@@ -579,7 +494,6 @@ if not df.empty:
 
         df_sorted = df_resolvidas.sort_values(by=sort_by_column, ascending=is_ascending, na_position='last')
 
-        # Tabela resumida
         st.header("Lista de Ocorrências (Tabela)")
         df_tab = df_sorted.copy()
         df_tab.reset_index(inplace=True, drop=True)
@@ -589,10 +503,9 @@ if not df.empty:
             'Ativo','Ocorrência','Operador','Descrição','OS'
         ]], use_container_width=True)
 
-        # Cards de detalhes
         st.header("Detalhes por Ocorrência (Cards)")
 
-        num_cols = 4  # igual à página principal
+        num_cols = 4
         rows = list(df_sorted.iterrows())
 
         def fmt_dt(dt):
@@ -602,9 +515,9 @@ if not df.empty:
 
         for i in range(0, len(rows), num_cols):
             try:
-                cols = st.columns(num_cols, gap="small")  # grid por linha
+                cols = st.columns(num_cols, gap="small")
             except TypeError:
-                cols = st.columns(num_cols)               # fallback
+                cols = st.columns(num_cols)
 
             for j in range(num_cols):
                 if i + j >= len(rows):

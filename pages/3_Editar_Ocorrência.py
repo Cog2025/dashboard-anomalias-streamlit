@@ -1,14 +1,12 @@
 import os
-from webdav3.client import Client
-import io
 import streamlit as st
 import pandas as pd
 from datetime import datetime, date, time
 import time as pytime
 import gspread
 from google.oauth2.service_account import Credentials
-from gspread_dataframe import get_as_dataframe
 import html
+import utils # [MODIFICADO]
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(layout="wide")
@@ -19,47 +17,23 @@ if 'ui_phase' not in st.session_state:
 if 'loading_ts' not in st.session_state:
     st.session_state.loading_ts = 0
 
-def render_loading_overlay(ui_phase: str | None = None):
-    phase = ui_phase or st.session_state.get('ui_phase', 'ready')
-    display = 'flex' if phase == 'loading' else 'none'
-    st.markdown(f"""
-    <style>
-      #__overlay__ {{
-        position: fixed; inset: 0;
-        display: {display};
-        align-items: center; justify-content: center;
-        z-index: 10000;
-        background: rgba(0,0,0,0);
-        animation: bgIn 0s linear 0.25s forwards;
-      }}
-      .loader {{
-        width: 64px; height: 64px; border-radius: 50%;
-        border: 6px solid rgba(255,255,255,.25);
-        border-top-color: #FF4B4B;
-        animation: spin 1s linear infinite, appear 0s linear 0.25s forwards;
-        opacity: 0;
-      }}
-      @keyframes appear {{ to {{ opacity: 1; }} }}
-      @keyframes bgIn {{ to {{ background: rgba(0,0,0,.55); }} }}
-      @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
-    </style>
-    <div id="__overlay__"><div class="loader"></div></div>
-    """, unsafe_allow_html=True)
+# [MODIFICADO] Utils
+utils.render_loading_overlay(st.session_state.ui_phase)
 
 def overlay_on():
     st.session_state.ui_phase = 'loading'
     st.session_state.loading_ts = pytime.time()
-    render_loading_overlay('loading')
+    utils.render_loading_overlay('loading')
 
 def overlay_off():
     st.session_state.ui_phase = 'ready'
     st.session_state.loading_ts = 0
-    render_loading_overlay('ready')
+    utils.render_loading_overlay('ready')
 
 # Injeta CSS do overlay em estado pronto
-render_loading_overlay('ready')
+utils.render_loading_overlay('ready')
 
-# CSS dos Cards (Copiado das outras páginas para manter padrão)
+# CSS dos Cards
 st.markdown("""
 <style>
     .card-container {
@@ -87,13 +61,11 @@ if 'edited_occurrence_feedback' in st.session_state:
     st.success("Ocorrência atualizada com sucesso!")
     d = st.session_state.pop('edited_occurrence_feedback')
     
-    # Helper para formatar data/hora no card
     def _fmt(val):
         if not val: return ''
         if isinstance(val, str): return val
         return val.strftime('%d/%m/%Y %H:%M')
 
-    # Renderiza o Card
     st.markdown(f"""
     <div class="card-container">
         <div class="card-title">{d.get('UG', '')}</div>
@@ -109,17 +81,6 @@ if 'edited_occurrence_feedback' in st.session_state:
     </div>
     """, unsafe_allow_html=True)
 
-
-# --- CONFIGURAÇÃO DE ACESSO AO GOOGLE SHEETS ---
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
-]
-CREDS_FILE = "google_credentials.json"
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
-PLANILHA_NOME_1 = "DESLIGAMENTOS"
-PLANILHA_NOME_2 = "EQUIPAMENTOS"
-PLANILHA_DADOS = "DADOS"
 MAPA_RENOMEAR = {
     'IDENTIFICADOR': 'Identificador', 'CLIENTE': 'Cliente', 'UG': 'UG', 'TIPO DE OCORRÊNCIA': 'Tipo de ocorrência',
     'ATIVO': 'Ativo', 'NOME ATIVO': 'Nome Ativo', 'OCORRÊNCIA': 'Ocorrência',
@@ -129,29 +90,14 @@ MAPA_RENOMEAR = {
     'ATENDIMENTO TERCEIROS': 'Atendimento Terceiros', 'PROTOCOLO': 'Protocolo', 'CLIENTE AVISADO': 'Cliente Avisado'
 }
 
-def fetch_sheet_as_df(worksheet):
-    data = worksheet.get_all_values()
-    if not data:
-        return pd.DataFrame()
-    headers = [h.replace('\xa0', '').strip() for h in data.pop(0)]
-    return pd.DataFrame(data, columns=headers)
-
-@st.cache_resource(ttl=600)
-def connect_to_google_sheets():
-    if os.path.exists(CREDS_FILE):
-        creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
-    else:
-        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPES)
-    client = gspread.authorize(creds)
-    return client
-
 @st.cache_data(ttl=60)
 def carregar_dados_completos():
     try:
-        client = connect_to_google_sheets()
-        workbook = client.open_by_url(SPREADSHEET_URL)
-        df_desligamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_1))
-        df_equipamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_2))
+        # [MODIFICADO] Utils
+        client = utils.connect_to_google_sheets()
+        workbook = client.open_by_url(utils.SPREADSHEET_URL)
+        df_desligamentos = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_DESLIGAMENTOS))
+        df_equipamentos = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_EQUIPAMENTOS))
 
         df_desligamentos['Categoria'] = 'DESLIGAMENTOS'
         df_equipamentos['Categoria']  = 'EQUIPAMENTOS'
@@ -183,9 +129,9 @@ def carregar_dados_completos():
 @st.cache_data(ttl=600)
 def carregar_opcoes_para_edicao():
     try:
-        client = connect_to_google_sheets()
-        workbook = client.open_by_url(SPREADSHEET_URL)
-        df_dados = fetch_sheet_as_df(workbook.worksheet(PLANILHA_DADOS)).fillna('')
+        client = utils.connect_to_google_sheets()
+        workbook = client.open_by_url(utils.SPREADSHEET_URL)
+        df_dados = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_DADOS)).fillna('')
 
         for col in df_dados.columns:
             if df_dados[col].dtype == 'object':
@@ -212,26 +158,21 @@ def split_datetime(dt_obj):
     return None, None
 
 # --- 3. INTERFACE DO STREAMLIT ---
-render_loading_overlay('loading')
+utils.render_loading_overlay('loading')
 
 def _stop_with_overlay_off(msg: str | None = None, kind: str = "warning"):
     if msg:
-        if kind == "warning":
-            st.warning(msg)
-        elif kind == "error":
-            st.error(msg)
-        elif kind == "info":
-            st.info(msg)
+        if kind == "warning": st.warning(msg)
+        elif kind == "error": st.error(msg)
+        elif kind == "info": st.info(msg)
     overlay_off()
     st.stop()
 
 try:
-    # Fluxo 1: seleção vinda da página principal
     if ('id_unico_para_editar' not in st.session_state) or (not st.session_state['id_unico_para_editar']):
         df_lista = st.session_state.get('df_lista_para_editar')
 
         if df_lista is not None and not df_lista.empty:
-            # Fallback: cria 'Display' se não existir
             if 'Display' not in df_lista.columns:
                 if 'Desligamento' in df_lista.columns:
                     df_tmp = df_lista.copy()
@@ -272,7 +213,6 @@ try:
                 _stop_with_overlay_off("Nenhuma ocorrência selecionada para edição.")
 
         else:
-            # Fallback: carregar todos os dados e permitir seleção
             df_full = carregar_dados_completos()
             if df_full.empty:
                 _stop_with_overlay_off("Falha ao carregar dados para montar a lista de edição.", kind="error")
@@ -306,7 +246,6 @@ try:
                 st.info("Escolha uma ocorrência para prosseguir.")
                 st.stop()
 
-    # Fluxo 2: já existe um ID selecionado
     id_para_editar = st.session_state['id_unico_para_editar']
     df_completo = carregar_dados_completos()
     opcoes_edicao = carregar_opcoes_para_edicao()
@@ -321,7 +260,6 @@ try:
     ocorrencia = dados_ocorrencia.iloc[0].to_dict()
     categoria = ocorrencia.get('Categoria', 'DESLIGAMENTOS')
 
-    # Desliga overlay antes de renderizar o form
     overlay_off()
 
     with st.form("edit_form"):
@@ -367,17 +305,13 @@ try:
 
         if submitted:
             try:
-                # overlay_on() 
-                client = connect_to_google_sheets()
-                workbook = client.open_by_url(SPREADSHEET_URL)
+                client = utils.connect_to_google_sheets()
+                workbook = client.open_by_url(utils.SPREADSHEET_URL)
                 worksheet = workbook.worksheet(categoria)
                 all_data = worksheet.get_all_values()
                 headers = all_data[0]
 
                 headers_map = {h.strip().upper(): i for i, h in enumerate(headers)}
-                campos = ['UG', 'ATIVO', 'OCORRÊNCIA', 'DESLIGAMENTO']
-                
-                # ... (Lógica de busca da linha mantida) ...
                 idx_ug = headers_map['UG']
                 idx_ativo = headers_map['ATIVO']
                 idx_ocorrencia = headers_map['OCORRÊNCIA']
@@ -387,8 +321,7 @@ try:
                 for i, row in enumerate(all_data[1:], start=2):
                     try:
                         desligamento_dt = pd.to_datetime(row[idx_desligamento], errors='coerce')
-                        if pd.isna(desligamento_dt):
-                            continue
+                        if pd.isna(desligamento_dt): continue
                         current_id = f"{row[idx_ug].upper()}|{row[idx_ativo].upper()}|{row[idx_ocorrencia].upper()}|{desligamento_dt}"
                         if current_id == id_para_editar:
                             row_to_edit = i
@@ -399,7 +332,6 @@ try:
                 if row_to_edit == -1:
                     _stop_with_overlay_off("Não foi possível localizar a linha correspondente na planilha.", kind="error")
 
-                # Atualiza dados no objeto local
                 dados_atualizados = ocorrencia.copy()
                 dados_atualizados['UG'] = st.session_state.ug
                 dados_atualizados['Nome Ativo'] = st.session_state.nome_ativo
@@ -418,7 +350,6 @@ try:
                 dados_atualizados['Atendimento Terceiros'] = format_dt(combine_date_time(st.session_state.terc_date, st.session_state.terc_time))
                 dados_atualizados['Cliente Avisado'] = format_dt(combine_date_time(st.session_state.avis_date, st.session_state.avis_time))
 
-                # Monta linha para planilha
                 linha_para_atualizar = []
                 for h in headers:
                     h_strip = h.strip()
@@ -428,10 +359,8 @@ try:
                         valor = valor.strftime('%Y-%m-%d %H:%M:%S')
                     linha_para_atualizar.append(valor)
 
-                # Atualiza no Google Sheets
                 worksheet.update(f'A{row_to_edit}', [linha_para_atualizar], value_input_option='USER_ENTERED')
 
-                # ARMAZENA DADOS NO SESSION STATE PARA CARD DE SUCESSO E LIMPA ID
                 st.session_state['edited_occurrence_feedback'] = dados_atualizados
                 st.session_state.pop('id_unico_para_editar', None)
                 st.cache_data.clear()
@@ -442,5 +371,4 @@ try:
                 st.error(f"Ocorreu um erro ao atualizar a Planilha Google: {e}")
 
 finally:
-    # Desliga overlay em qualquer caminho
     overlay_off()

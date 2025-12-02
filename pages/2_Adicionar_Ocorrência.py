@@ -1,5 +1,4 @@
 import os
-from webdav3.client import Client
 import io
 import streamlit as st
 import pandas as pd
@@ -8,6 +7,7 @@ import time as pytime
 import gspread
 from google.oauth2.service_account import Credentials
 import re
+import utils  # [MODIFICADO]
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA E CSS ---
 st.set_page_config(layout="wide")
@@ -18,46 +18,21 @@ if 'ui_phase' not in st.session_state:
 if 'loading_ts' not in st.session_state:
     st.session_state.loading_ts = 0
 
-def render_loading_overlay(ui_phase: str | None = None):
-    phase = ui_phase or st.session_state.get('ui_phase', 'ready')
-    display = 'flex' if phase == 'loading' else 'none'
-    css = """
-    <style>
-      #__overlay__ {{
-        position: fixed; inset: 0;
-        display: __DISPLAY__;
-        align-items: center; justify-content: center;
-        z-index: 10000;
-        background: rgba(0,0,0,0);
-        animation: bgIn 0s linear 0.25s forwards;
-      }}
-      .loader {{
-        width: 64px; height: 64px; border-radius: 50%;
-        border: 6px solid rgba(255,255,255,.25);
-        border-top-color: #FF4B4B;
-        animation: spin 1s linear infinite, appear 0s linear 0.25s forwards;
-        opacity: 0;
-      }}
-      @keyframes appear {{ to {{ opacity: 1; }} }}
-      @keyframes bgIn {{ to {{ background: rgba(0,0,0,.55); }} }}
-      @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
-    </style>
-    <div id="__overlay__"><div class="loader"></div></div>
-    """.replace("__DISPLAY__", display)
-    st.markdown(css, unsafe_allow_html=True)
+# [MODIFICADO] Usando utils
+utils.render_loading_overlay(st.session_state.ui_phase)
 
 def overlay_on():
     st.session_state.ui_phase = 'loading'
     st.session_state.loading_ts = pytime.time()
-    render_loading_overlay('loading')
+    utils.render_loading_overlay('loading')
 
 def overlay_off():
     st.session_state.ui_phase = 'ready'
     st.session_state.loading_ts = 0
-    render_loading_overlay('ready')
+    utils.render_loading_overlay('ready')
 
 # Injeta CSS do overlay em estado pronto
-render_loading_overlay('ready')
+utils.render_loading_overlay('ready')
 
 st.title("Adicionar Nova Ocorrência")
 st.markdown("""
@@ -99,39 +74,14 @@ def format_datetime_card(dt_obj):
             return '', ''
     return '', ''
 
-PLANILHA_DESLIGAMENTOS = 'DESLIGAMENTOS'
-PLANILHA_EQUIPAMENTOS = 'EQUIPAMENTOS'
-PLANILHA_DADOS = 'DADOS'
-PLANILHA_DETALHADA = 'Usinas_Detalhado'
-
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-CREDS_FILE = "google_credentials.json"
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
-
-def fetch_sheet_as_df(worksheet):
-    data = worksheet.get_all_values()
-    if not data:
-        return pd.DataFrame()
-    headers = [h.replace('\xa0', '').strip() for h in data.pop(0)]
-    return pd.DataFrame(data, columns=headers)
-
-@st.cache_resource(ttl=600)
-def connect_to_google_sheets():
-    # Verifica se está rodando localmente (arquivo existe) ou na nuvem (usa st.secrets)
-    if os.path.exists(CREDS_FILE):
-        creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
-    else:
-        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPES)
-    client = gspread.authorize(creds)
-    return client
-
 @st.cache_data(ttl=60)
 def carregar_dados_e_opcoes():
     try:
-        client = connect_to_google_sheets()
-        workbook = client.open_by_url(SPREADSHEET_URL)
-        df_dados = fetch_sheet_as_df(workbook.worksheet(PLANILHA_DADOS)).fillna('')
-        df_detalhado = fetch_sheet_as_df(workbook.worksheet(PLANILHA_DETALHADA)).fillna('')
+        # [MODIFICADO] Usando utils
+        client = utils.connect_to_google_sheets()
+        workbook = client.open_by_url(utils.SPREADSHEET_URL)
+        df_dados = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_DADOS)).fillna('')
+        df_detalhado = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_DETALHADA)).fillna('')
 
         for col in df_dados.columns:
             if df_dados[col].dtype == 'object':
@@ -140,6 +90,7 @@ def carregar_dados_e_opcoes():
             if df_detalhado[col].dtype == 'object':
                 df_detalhado[col] = df_detalhado[col].str.strip()
 
+        # Mantendo o traço "-" para evitar pré-seleção
         op_cliente = ['-'] + sorted(df_dados[df_dados['CLIENTE'] != '']['CLIENTE'].unique().tolist())
         op_ocorrencia = ['-'] + sorted(df_dados[df_dados['OCORRÊNCIA'] != '']['OCORRÊNCIA'].unique().tolist())
         op_tipo = ['-'] + sorted(df_dados[df_dados['TIPO DE OCORRÊNCIA'] != '']['TIPO DE OCORRÊNCIA'].unique().tolist())
@@ -168,7 +119,7 @@ def _stop_with_overlay_off(msg: str | None = None, kind: str = "warning"):
 
 try:
     dados_e_opcoes = carregar_dados_e_opcoes()
-    # --- 3. PÓS-ENVIO: cards de confirmação (colar logo após carregar dados_e_opcoes) ---
+    # --- 3. PÓS-ENVIO: cards de confirmação ---
     def _get(details: dict, aliases: list[str]):
         for k in aliases:
             v = details.get(k)
@@ -186,7 +137,7 @@ try:
     # Render de cards de sucesso (após rerun)
     if 'last_submission_details' in st.session_state and st.session_state.last_submission_details:
         submitted_occurrences = st.session_state.last_submission_details
-        st.success(f"{len(submitted_occurrences)} ocorrência(s) adicionada(s) com sucesso!")  # feedback
+        st.success(f"{len(submitted_occurrences)} ocorrência(s) adicionada(s) com sucesso!")
         num_cols = 4
 
         for i in range(0, len(submitted_occurrences), num_cols):
@@ -255,7 +206,6 @@ try:
     df_dados = dados_e_opcoes.get('df_dados', pd.DataFrame())
     df_detalhado = dados_e_opcoes.get('df_detalhado', pd.DataFrame())
 
-    # Inicializar contador de reset (para forçar recriação de widgets)
     if 'form_reset_counter' not in st.session_state:
         st.session_state.form_reset_counter = 0
     reset_counter = st.session_state.form_reset_counter
@@ -263,7 +213,7 @@ try:
     # Seleção de categoria (validação só DEPOIS do selectbox)
     categoria_selecionada = st.selectbox(
         "Selecione a Categoria da Ocorrência",
-        options=[PLANILHA_DESLIGAMENTOS, PLANILHA_EQUIPAMENTOS],
+        options=[utils.SHEET_DESLIGAMENTOS, utils.SHEET_EQUIPAMENTOS],
         key=f'categoria_selecionada_{reset_counter}',
         index=None,
         placeholder="Selecione a categoria..."
@@ -273,7 +223,6 @@ try:
         st.warning("Selecione uma categoria para continuar.")
         st.stop()
 
-    # Persistir para outras páginas (opcional)
     st.session_state['categoria'] = categoria_selecionada
 
     st.subheader("Informações Gerais")
@@ -309,7 +258,7 @@ try:
                 st.multiselect("Nome Ativo (Usinas Selecionadas)", options=ug_selecionada, disabled=True, default=ug_selecionada)
                 items_para_processar = ug_selecionada
 
-        if categoria_selecionada == PLANILHA_EQUIPAMENTOS:
+        if categoria_selecionada == utils.SHEET_EQUIPAMENTOS:
             st.number_input("Quantidade", min_value=1, step=1, key=f'quantidade_{reset_counter}', value=1)
 
         st.session_state['items_para_processar'] = items_para_processar
@@ -394,20 +343,17 @@ try:
             'Descrição Detalhada': st.session_state.get(f'descricao_{reset_counter}')
         }
 
-        # Verifica campos vazios ou com valor padrão '-'
         erros = []
         for nome_campo, valor in campos_obrigatorios.items():
             if not valor or str(valor).strip() == "" or str(valor).strip() == "-":
                 erros.append(nome_campo)
         
-        # Verifica se UG/Ativos foram selecionados
         iter_list = st.session_state.get('items_para_processar', [])
         if not iter_list:
             erros.append("UG / Nome do Ativo")
 
         if erros:
             st.error(f"⚠️ Por favor, preencha os seguintes campos obrigatórios antes de salvar: {', '.join(erros)}")
-            # Para a execução aqui se houver erros
         else:
             # --- SE PASSOU NA VALIDAÇÃO, PROSEGUE COM SALVAMENTO ---
             def find_ug_for_ativo(ativo_nome, df_detalhado_cache, ugs_filtradas):
@@ -459,7 +405,7 @@ try:
                     'PROTOCOLO': st.session_state.get(f'protocolo_{reset_counter}'),
                     'OS': st.session_state.get(f'os_input_{reset_counter}')
                 }
-                if st.session_state.get(f'categoria_selecionada_{reset_counter}') == PLANILHA_EQUIPAMENTOS:
+                if st.session_state.get(f'categoria_selecionada_{reset_counter}') == utils.SHEET_EQUIPAMENTOS:
                     ocorrencia_base['QUANTIDADE'] = st.session_state.get(f'quantidade_{reset_counter}', 1)
 
                 for nome_evento, key_evento in eventos_map.items():
@@ -478,8 +424,9 @@ try:
 
             if not erro_encontrado and ocorrencias_para_salvar:
                 try:
-                    client = connect_to_google_sheets()
-                    workbook = client.open_by_url(SPREADSHEET_URL)
+                    # [MODIFICADO] Usando utils
+                    client = utils.connect_to_google_sheets()
+                    workbook = client.open_by_url(utils.SPREADSHEET_URL)
                     worksheet = workbook.worksheet(st.session_state.get(f'categoria_selecionada_{reset_counter}'))
                     colunas_planilha = worksheet.row_values(1)
 
