@@ -1,446 +1,196 @@
-import os
-from webdav3.client import Client
-import io
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date, time
+from datetime import datetime
 import time as pytime
-import gspread
-from google.oauth2.service_account import Credentials
-from gspread_dataframe import get_as_dataframe
-import html
+import utils
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(layout="wide")
-
-# Estado mínimo do overlay
-if 'ui_phase' not in st.session_state:
-    st.session_state.ui_phase = 'ready'
-if 'loading_ts' not in st.session_state:
-    st.session_state.loading_ts = 0
-
-def render_loading_overlay(ui_phase: str | None = None):
-    phase = ui_phase or st.session_state.get('ui_phase', 'ready')
-    display = 'flex' if phase == 'loading' else 'none'
-    st.markdown(f"""
-    <style>
-      #__overlay__ {{
-        position: fixed; inset: 0;
-        display: {display};
-        align-items: center; justify-content: center;
-        z-index: 10000;
-        background: rgba(0,0,0,0);
-        animation: bgIn 0s linear 0.25s forwards;
-      }}
-      .loader {{
-        width: 64px; height: 64px; border-radius: 50%;
-        border: 6px solid rgba(255,255,255,.25);
-        border-top-color: #FF4B4B;
-        animation: spin 1s linear infinite, appear 0s linear 0.25s forwards;
-        opacity: 0;
-      }}
-      @keyframes appear {{ to {{ opacity: 1; }} }}
-      @keyframes bgIn {{ to {{ background: rgba(0,0,0,.55); }} }}
-      @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
-    </style>
-    <div id="__overlay__"><div class="loader"></div></div>
-    """, unsafe_allow_html=True)
-
-def overlay_on():
-    st.session_state.ui_phase = 'loading'
-    st.session_state.loading_ts = pytime.time()
-    render_loading_overlay('loading')
-
-def overlay_off():
-    st.session_state.ui_phase = 'ready'
-    st.session_state.loading_ts = 0
-    render_loading_overlay('ready')
-
-# Injeta CSS do overlay em estado pronto
-render_loading_overlay('ready')
-
-# CSS dos Cards (Copiado das outras páginas para manter padrão)
-st.markdown("""
-<style>
-    .card-container {
-        background-color: #FF4B4B;
-        color: white;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-    .card-title {
-        font-size: 1.5em; font-weight: bold; color: white;
-        border-bottom: 1px solid rgba(255,255,255,0.5);
-        padding-bottom: 5px; margin-bottom: 10px;
-    }
-    .card-item { margin-bottom: 5px; font-size: 1em; }
-    .card-label { font-weight: bold; }
-</style>
-""", unsafe_allow_html=True)
-
+utils.init_overlay()
 st.title("📝 Editar Ocorrência")
 
-# --- FEEDBACK VISUAL APÓS EDIÇÃO ---
+# --- Feedback Visual de Sucesso ---
 if 'edited_occurrence_feedback' in st.session_state:
     st.success("Ocorrência atualizada com sucesso!")
     d = st.session_state.pop('edited_occurrence_feedback')
     
-    # Helper para formatar data/hora no card
-    def _fmt(val):
-        if not val: return ''
-        if isinstance(val, str): return val
-        return val.strftime('%d/%m/%Y %H:%M')
-
-    # Renderiza o Card
     st.markdown(f"""
-    <div class="card-container">
-        <div class="card-title">{d.get('UG', '')}</div>
-        <div class="card-item"><span class="card-label">Cliente:</span> {d.get('Cliente', '')}</div>
-        <div class="card-item"><span class="card-label">Ativo:</span> {d.get('Ativo', '')}</div>
-        <div class="card-item"><span class="card-label">Nome Ativo:</span> {d.get('Nome Ativo', '')}</div>
-        <div class="card-item"><span class="card-label">Tipo Ocorrência:</span> {d.get('Tipo de ocorrência', '')}</div>
-        <div class="card-item"><span class="card-label">Ocorrência:</span> {d.get('Ocorrência', '')}</div>
-        <div class="card-item"><span class="card-label">Operador:</span> {d.get('Operador', '')}</div>
-        <br>
-        <div class="card-item"><span class="card-label">Normalização:</span> {_fmt(d.get('Normalização'))}</div>
-        <div class="card-item"><span class="card-label">Descrição:</span> {d.get('Descrição', '')}</div>
+    <div style="background-color:#FF4B4B; padding:15px; border-radius:8px; color:white; margin-bottom:15px;">
+        <h3>{d.get('UG', '')}</h3>
+        <p><b>Ocorrência:</b> {d.get('Ocorrência', '')}</p>
+        <p><b>Status:</b> Dados salvos e normalização atualizada.</p>
     </div>
     """, unsafe_allow_html=True)
 
-
-# --- CONFIGURAÇÃO DE ACESSO AO GOOGLE SHEETS ---
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
-]
-CREDS_FILE = "google_credentials.json"
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
-PLANILHA_NOME_1 = "DESLIGAMENTOS"
-PLANILHA_NOME_2 = "EQUIPAMENTOS"
-PLANILHA_DADOS = "DADOS"
-MAPA_RENOMEAR = {
-    'IDENTIFICADOR': 'Identificador', 'CLIENTE': 'Cliente', 'UG': 'UG', 'TIPO DE OCORRÊNCIA': 'Tipo de ocorrência',
-    'ATIVO': 'Ativo', 'NOME ATIVO': 'Nome Ativo', 'OCORRÊNCIA': 'Ocorrência',
-    'QUANTIDADE': 'Quantidade', 'SIGLA': 'Sigla', 'NORMALIZAÇÃO': 'Normalização',
-    'DESLIGAMENTO': 'Desligamento', 'OPERADOR': 'Operador', 'DESCRIÇÃO': 'Descrição',
-    'OS': 'OS', 'ATENDIMENTO LOOP': 'Atendimento Loop',
-    'ATENDIMENTO TERCEIROS': 'Atendimento Terceiros', 'PROTOCOLO': 'Protocolo', 'CLIENTE AVISADO': 'Cliente Avisado'
-}
-
-def fetch_sheet_as_df(worksheet):
-    data = worksheet.get_all_values()
-    if not data:
-        return pd.DataFrame()
-    headers = [h.replace('\xa0', '').strip() for h in data.pop(0)]
-    return pd.DataFrame(data, columns=headers)
-
-@st.cache_resource(ttl=600)
-def connect_to_google_sheets():
-    if os.path.exists(CREDS_FILE):
-        creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
+# --- Seleção da Ocorrência ---
+# Se não veio da Home com ID, mostra lista para selecionar
+if 'id_unico_para_editar' not in st.session_state:
+    df = utils.carregar_dados_completos()
+    if not df.empty:
+        # Filtra apenas abertas ou mostra todas? Mostra todas para permitir correção
+        df['Display'] = (
+            df['UG'] + " | " + df['Ocorrência'] + " | " + 
+            df['Desligamento'].dt.strftime('%d/%m/%Y %H:%M').fillna('')
+        )
+        opts = df['Display'].tolist()
+        sel = st.selectbox("Buscar Ocorrência:", options=opts, index=None, placeholder="Digite para buscar...")
+        
+        if sel:
+             id_unico = df.loc[df['Display'] == sel, 'ID_Unico'].values[0]
+             st.session_state['id_unico_para_editar'] = id_unico
+             st.rerun()
     else:
-        creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPES)
-    client = gspread.authorize(creds)
-    return client
+        st.error("Sem dados para carregar.")
+        st.stop()
 
-@st.cache_data(ttl=60)
-def carregar_dados_completos():
-    try:
-        client = connect_to_google_sheets()
-        workbook = client.open_by_url(SPREADSHEET_URL)
-        df_desligamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_1))
-        df_equipamentos = fetch_sheet_as_df(workbook.worksheet(PLANILHA_NOME_2))
-
-        df_desligamentos['Categoria'] = 'DESLIGAMENTOS'
-        df_equipamentos['Categoria']  = 'EQUIPAMENTOS'
-        df_todos_dados = pd.concat([df_desligamentos, df_equipamentos], ignore_index=True)
-
-        colunas_atuais = df_todos_dados.columns
-        renomear_final = {}
-        for col in colunas_atuais:
-            col_strip_upper = col.strip().upper()
-            if col_strip_upper in MAPA_RENOMEAR:
-                renomear_final[col] = MAPA_RENOMEAR[col_strip_upper]
-        df_todos_dados.rename(columns=renomear_final, inplace=True)
-        df_todos_dados.fillna('', inplace=True)
-
-        colunas_datetime = ['Normalização', 'Desligamento', 'Atendimento Loop', 'Atendimento Terceiros', 'Cliente Avisado']
-        for col in colunas_datetime:
-            if col in df_todos_dados.columns:
-                df_todos_dados[col] = pd.to_datetime(df_todos_dados[col], errors='coerce', dayfirst=False)
-
-        df_todos_dados['ID_Unico'] = df_todos_dados['UG'].astype(str).str.upper() + "|" + \
-                                     df_todos_dados['Ativo'].astype(str).str.upper() + "|" + \
-                                     df_todos_dados['Ocorrência'].astype(str).str.upper() + "|" + \
-                                     df_todos_dados['Desligamento'].astype(str)
-        return df_todos_dados
-    except Exception as e:
-        st.error(f"Erro ao carregar dados do Google Sheets: {e}")
-        return pd.DataFrame()
-
-@st.cache_data(ttl=600)
-def carregar_opcoes_para_edicao():
-    try:
-        client = connect_to_google_sheets()
-        workbook = client.open_by_url(SPREADSHEET_URL)
-        df_dados = fetch_sheet_as_df(workbook.worksheet(PLANILHA_DADOS)).fillna('')
-
-        for col in df_dados.columns:
-            if df_dados[col].dtype == 'object':
-                df_dados[col] = df_dados[col].str.strip()
-
-        opcoes = {
-            'tipos_ocorrencia': sorted(df_dados[df_dados['TIPO DE OCORRÊNCIA'] != '']['TIPO DE OCORRÊNCIA'].unique().tolist()),
-            'ocorrencias': sorted(df_dados[df_dados['OCORRÊNCIA'] != '']['OCORRÊNCIA'].unique().tolist()),
-            'operadores': sorted(df_dados[df_dados['OPERADOR'] != '']['OPERADOR'].unique().tolist())
-        }
-        return opcoes
-    except Exception as e:
-        st.error(f"Erro ao carregar listas de opções: {e}")
-        return {}
-
-def combine_date_time(date_val, time_val):
-    if date_val and time_val:
-        return datetime.combine(date_val, time_val)
-    return None
-
-def split_datetime(dt_obj):
-    if pd.notna(dt_obj) and isinstance(dt_obj, (datetime, pd.Timestamp)):
-        return dt_obj.date(), dt_obj.time()
-    return None, None
-
-# --- 3. INTERFACE DO STREAMLIT ---
-render_loading_overlay('loading')
-
-def _stop_with_overlay_off(msg: str | None = None, kind: str = "warning"):
-    if msg:
-        if kind == "warning":
-            st.warning(msg)
-        elif kind == "error":
-            st.error(msg)
-        elif kind == "info":
-            st.info(msg)
-    overlay_off()
-    st.stop()
-
-try:
-    # Fluxo 1: seleção vinda da página principal
-    if ('id_unico_para_editar' not in st.session_state) or (not st.session_state['id_unico_para_editar']):
-        df_lista = st.session_state.get('df_lista_para_editar')
-
-        if df_lista is not None and not df_lista.empty:
-            # Fallback: cria 'Display' se não existir
-            if 'Display' not in df_lista.columns:
-                if 'Desligamento' in df_lista.columns:
-                    df_tmp = df_lista.copy()
-                    if not pd.api.types.is_datetime64_any_dtype(df_tmp['Desligamento']):
-                        df_tmp['Desligamento'] = pd.to_datetime(df_tmp['Desligamento'], errors='coerce')
-                    disp_data = df_tmp['Desligamento'].dt.strftime('%d/%m/%Y %H:%M').fillna('')
-                else:
-                    disp_data = pd.Series([''] * len(df_lista))
-
-                df_lista['Display'] = (
-                    df_lista.get('UG', '').astype(str) + " | " +
-                    df_lista.get('Ativo', '').astype(str) + " | " +
-                    df_lista.get('Nome Ativo', '').astype(str) + " | " +
-                    df_lista.get('Ocorrência', '').astype(str) + " | " +
-                    disp_data.astype(str)
-                )
-
-            st.subheader("Lista de Ocorrências (da página principal)")
-            st.dataframe(
-                df_lista.drop(columns=[c for c in ['ID_Unico'] if c in df_lista.columns]),
-                use_container_width=True
-            )
-
-            options = df_lista['Display'].tolist()
-            occ_disp = st.selectbox(
-                "Selecione a ocorrência para editar:",
-                options=options,
-                index=None,
-                placeholder="Escolha uma ocorrência..."
-            )
-            if occ_disp:
-                sel = df_lista.loc[df_lista['Display'] == occ_disp].iloc[0]
-                st.session_state['id_unico_para_editar'] = sel['ID_Unico']
-                overlay_off()
-                st.rerun()
-
-            if not st.session_state.get('id_unico_para_editar'):
-                _stop_with_overlay_off("Nenhuma ocorrência selecionada para edição.")
-
-        else:
-            # Fallback: carregar todos os dados e permitir seleção
-            df_full = carregar_dados_completos()
-            if df_full.empty:
-                _stop_with_overlay_off("Falha ao carregar dados para montar a lista de edição.", kind="error")
-
-            df_tmp = df_full.copy()
-            if 'Desligamento' in df_tmp.columns and not pd.api.types.is_datetime64_any_dtype(df_tmp['Desligamento']):
-                df_tmp['Desligamento'] = pd.to_datetime(df_tmp['Desligamento'], errors='coerce')
-            disp_data = df_tmp['Desligamento'].dt.strftime('%d/%m/%Y %H:%M').fillna('') if 'Desligamento' in df_tmp.columns else ''
-            df_full['Display'] = (
-                df_full.get('UG','').astype(str) + " | " +
-                df_full.get('Ativo','').astype(str) + " | " +
-                df_full.get('Nome Ativo','').astype(str) + " | " +
-                df_full.get('Ocorrência','').astype(str) + " | " + disp_data.astype(str)
-            )
-
-            st.subheader("Selecione a ocorrência para editar")
-            options = df_full['Display'].tolist()
-            occ_disp = st.selectbox(
-                "Ocorrências",
-                options=options,
-                index=None,
-                placeholder="Escolha uma ocorrência..."
-            )
-            if occ_disp:
-                sel = df_full.loc[df_full['Display'] == occ_disp].iloc[0]
-                st.session_state['id_unico_para_editar'] = sel['ID_Unico']
-                overlay_off()
-                st.rerun()
-            else:
-                overlay_off()
-                st.info("Escolha uma ocorrência para prosseguir.")
-                st.stop()
-
-    # Fluxo 2: já existe um ID selecionado
-    id_para_editar = st.session_state['id_unico_para_editar']
-    df_completo = carregar_dados_completos()
-    opcoes_edicao = carregar_opcoes_para_edicao()
-
-    if df_completo.empty or not opcoes_edicao:
-        _stop_with_overlay_off("Falha ao carregar dados completos ou listas de opções para edição.", kind="error")
-
-    dados_ocorrencia = df_completo[df_completo['ID_Unico'] == id_para_editar]
-    if dados_ocorrencia.empty:
-        _stop_with_overlay_off("O ID selecionado não foi encontrado nos dados carregados.", kind="error")
-
-    ocorrencia = dados_ocorrencia.iloc[0].to_dict()
-    categoria = ocorrencia.get('Categoria', 'DESLIGAMENTOS')
-
-    # Desliga overlay antes de renderizar o form
-    overlay_off()
-
-    with st.form("edit_form"):
-        st.subheader(f"Editando Ocorrência em: {categoria}")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.text_input("UG", value=ocorrencia.get('UG'), key="ug")
-            st.text_input("Nome Ativo", value=ocorrencia.get('Nome Ativo'), key="nome_ativo")
-
-            tipo_ocorrencia_opts = opcoes_edicao.get('tipos_ocorrencia', [])
-            tipo_idx = tipo_ocorrencia_opts.index(ocorrencia.get('Tipo de ocorrência')) if ocorrencia.get('Tipo de ocorrência') in tipo_ocorrencia_opts else 0
-            st.selectbox("Tipo de Ocorrência", options=tipo_ocorrencia_opts, index=tipo_idx, key="tipo_ocorrencia")
-
-            ocorrencia_opts = opcoes_edicao.get('ocorrencias', [])
-            ocorrencia_idx = ocorrencia_opts.index(ocorrencia.get('Ocorrência')) if ocorrencia.get('Ocorrência') in ocorrencia_opts else 0
-            st.selectbox("Ocorrência", options=ocorrencia_opts, index=ocorrencia_idx, key="ocorrencia")
-
-            operador_opts = opcoes_edicao.get('operadores', [])
-            operador_idx = operador_opts.index(ocorrencia.get('Operador')) if ocorrencia.get('Operador') in operador_opts else 0
-            st.selectbox("Operador", options=operador_opts, index=operador_idx, key="operador")
-
-            st.text_area("Descrição", value=ocorrencia.get('Descrição'), key="descricao")
-            st.text_input("OS", value=ocorrencia.get('OS'), key="os")
-            st.text_input("Protocolo", value=ocorrencia.get('Protocolo'), key="protocolo")
-
-        with col2:
-            norm_date, norm_time = split_datetime(ocorrencia.get('Normalização'))
-            loop_date, loop_time = split_datetime(ocorrencia.get('Atendimento Loop'))
-            terc_date, terc_time = split_datetime(ocorrencia.get('Atendimento Terceiros'))
-            avis_date, avis_time = split_datetime(ocorrencia.get('Cliente Avisado'))
-
-            st.date_input("Data Normalização", value=norm_date, key="norm_date")
-            st.time_input("Hora Normalização", value=norm_time, key="norm_time")
-            st.date_input("Data Atendimento Loop", value=loop_date, key="loop_date")
-            st.time_input("Hora Atendimento Loop", value=loop_time, key="loop_time")
-            st.date_input("Data Atendimento Terceiros", value=terc_date, key="terc_date")
-            st.time_input("Hora Atendimento Terceiros", value=terc_time, key="terc_time")
-            st.date_input("Data Cliente Avisado", value=avis_date, key="avis_date")
-            st.time_input("Hora Cliente Avisado", value=avis_time, key="avis_time")
-
-        submitted = st.form_submit_button("✅ Salvar Alterações")
-
-        if submitted:
-            try:
-                # overlay_on() 
-                client = connect_to_google_sheets()
-                workbook = client.open_by_url(SPREADSHEET_URL)
-                worksheet = workbook.worksheet(categoria)
-                all_data = worksheet.get_all_values()
-                headers = all_data[0]
-
-                headers_map = {h.strip().upper(): i for i, h in enumerate(headers)}
-                campos = ['UG', 'ATIVO', 'OCORRÊNCIA', 'DESLIGAMENTO']
+# --- Formulário de Edição ---
+if 'id_unico_para_editar' in st.session_state:
+    id_alvo = st.session_state['id_unico_para_editar']
+    df_full = utils.carregar_dados_completos()
+    
+    # Encontra a linha no DF local
+    row = df_full[df_full['ID_Unico'] == id_alvo]
+    
+    if row.empty:
+        st.error("ID não encontrado. A ocorrência pode ter sido deletada ou a data alterada.")
+        if st.button("Voltar"):
+            del st.session_state['id_unico_para_editar']
+            st.rerun()
+    else:
+        dados = row.iloc[0].to_dict()
+        cat_atual = dados['Categoria']
+        
+        st.subheader(f"Editando: {dados['UG']} ({cat_atual})")
+        
+        with st.form("edit_form"):
+            c1, c2 = st.columns(2)
+            with c1:
+                # Campos de Texto
+                n_ug = st.text_input("UG", value=dados['UG'])
+                n_nome_atv = st.text_input("Nome Ativo", value=dados['Nome Ativo'])
+                # Seria ideal carregar listas de opções aqui, mas text_input permite edição livre
+                n_tipo = st.text_input("Tipo", value=dados['Tipo de ocorrência'])
+                n_ocorr = st.text_input("Ocorrência", value=dados['Ocorrência'])
+                n_oper = st.text_input("Operador", value=dados['Operador'])
+                n_desc = st.text_area("Descrição", value=dados['Descrição'])
+                n_prot = st.text_input("Protocolo", value=dados['Protocolo'])
+                n_os = st.text_input("OS", value=dados['OS'])
                 
-                # ... (Lógica de busca da linha mantida) ...
-                idx_ug = headers_map['UG']
-                idx_ativo = headers_map['ATIVO']
-                idx_ocorrencia = headers_map['OCORRÊNCIA']
-                idx_desligamento = headers_map['DESLIGAMENTO']
+            with c2:
+                # Datas
+                def split_dt(val):
+                    if pd.isna(val) or val == "": return None, None
+                    return val.date(), val.time()
 
-                row_to_edit = -1
-                for i, row in enumerate(all_data[1:], start=2):
-                    try:
-                        desligamento_dt = pd.to_datetime(row[idx_desligamento], errors='coerce')
-                        if pd.isna(desligamento_dt):
+                dn_d, dn_t = split_dt(dados['Normalização'])
+                d_norm = st.date_input("Data Normalização", value=dn_d)
+                h_norm = st.time_input("Hora Normalização", value=dn_t)
+                
+                dl_d, dl_t = split_dt(dados['Atendimento Loop'])
+                d_loop = st.date_input("Data Loop", value=dl_d)
+                h_loop = st.time_input("Hora Loop", value=dl_t)
+                
+                dt_d, dt_t = split_dt(dados['Atendimento Terceiros'])
+                d_terc = st.date_input("Data Terceiros", value=dt_d)
+                h_terc = st.time_input("Hora Terceiros", value=dt_t)
+
+                da_d, da_t = split_dt(dados['Cliente Avisado'])
+                d_avis = st.date_input("Data Aviso", value=da_d)
+                h_avis = st.time_input("Hora Aviso", value=da_t)
+
+            submitted = st.form_submit_button("✅ Salvar Alterações", type="primary")
+            
+            if submitted:
+                utils.overlay_on()
+                try:
+                    client = utils.connect_to_google_sheets()
+                    ws = client.open_by_url(utils.SPREADSHEET_URL).worksheet(cat_atual)
+                    
+                    # --- Lógica para encontrar a linha no Google Sheets ---
+                    # Precisamos encontrar a linha que bate com UG, ATIVO, OCORRÊNCIA e DESLIGAMENTO
+                    all_values = ws.get_all_values()
+                    header = all_values[0]
+                    h_map = {h.strip().upper(): i for i, h in enumerate(header)}
+                    
+                    # Indices chaves
+                    idx_ug = h_map.get('UG')
+                    idx_atv = h_map.get('ATIVO')
+                    idx_ocr = h_map.get('OCORRÊNCIA')
+                    idx_des = h_map.get('DESLIGAMENTO')
+                    
+                    target_row_index = -1
+                    
+                    # Recria o ID original para comparação
+                    original_deslig_str = str(dados['Desligamento']) # Formato timestamp pandas
+                    
+                    for i, r in enumerate(all_values):
+                        if i == 0: continue # Pula header
+                        
+                        # Tenta parsear a data da planilha para comparar com o ID
+                        try:
+                            # A planilha está em texto d/m/y h:m:s, o ID_Unico usa o formato do pandas
+                            # Estratégia: Criar o ID da linha atual e comparar com id_alvo
+                            r_ug = r[idx_ug].upper()
+                            r_atv = r[idx_atv].upper()
+                            r_ocr = r[idx_ocr].upper()
+                            r_des_raw = r[idx_des]
+                            
+                            r_dt = pd.to_datetime(r_des_raw, dayfirst=True, errors='coerce')
+                            if pd.isna(r_dt): continue
+                            
+                            # ID Recriado
+                            row_id = f"{r_ug}|{r_atv}|{r_ocr}|{r_dt}"
+                            
+                            if row_id == id_alvo:
+                                target_row_index = i + 1 # GSpread é 1-based
+                                break
+                        except Exception:
                             continue
-                        current_id = f"{row[idx_ug].upper()}|{row[idx_ativo].upper()}|{row[idx_ocorrencia].upper()}|{desligamento_dt}"
-                        if current_id == id_para_editar:
-                            row_to_edit = i
-                            break
-                    except (IndexError, ValueError):
-                        continue
+                            
+                    if target_row_index == -1:
+                        st.error("Linha não encontrada na planilha. Os dados chaves (UG, Data) podem ter mudado.")
+                        utils.overlay_off()
+                    else:
+                        # Atualiza a linha
+                        # Helper para formatar data str
+                        def fmt_join(d, t):
+                            if d and t: return datetime.combine(d, t).strftime('%d/%m/%Y %H:%M:%S')
+                            return ""
+                        
+                        # Monta dict de update
+                        updates = {
+                            'UG': n_ug, 'NOME ATIVO': n_nome_atv, 'TIPO DE OCORRÊNCIA': n_tipo,
+                            'OCORRÊNCIA': n_ocorr, 'OPERADOR': n_oper, 'DESCRIÇÃO': n_desc,
+                            'PROTOCOLO': n_prot, 'OS': n_os,
+                            'NORMALIZAÇÃO': fmt_join(d_norm, h_norm),
+                            'ATENDIMENTO LOOP': fmt_join(d_loop, h_loop),
+                            'ATENDIMENTO TERCEIROS': fmt_join(d_terc, h_terc),
+                            'CLIENTE AVISADO': fmt_join(d_avis, h_avis)
+                        }
+                        
+                        # Precisamos ler a linha inteira, atualizar e escrever de volta
+                        # Ou atualizar celula por celula. Row update é mais seguro.
+                        current_row_data = all_values[target_row_index - 1] # 0-based para lista local
+                        new_row_data = current_row_data[:]
+                        
+                        for col_name, val in updates.items():
+                            if col_name in h_map:
+                                new_row_data[h_map[col_name]] = val
+                        
+                        # Update range
+                        cell_range = f"A{target_row_index}"
+                        ws.update(cell_range, [new_row_data], value_input_option='USER_ENTERED')
+                        
+                        # Sucesso
+                        st.session_state['edited_occurrence_feedback'] = updates
+                        del st.session_state['id_unico_para_editar']
+                        st.cache_data.clear()
+                        utils.overlay_off()
+                        st.rerun()
 
-                if row_to_edit == -1:
-                    _stop_with_overlay_off("Não foi possível localizar a linha correspondente na planilha.", kind="error")
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
+                    utils.overlay_off()
 
-                # Atualiza dados no objeto local
-                dados_atualizados = ocorrencia.copy()
-                dados_atualizados['UG'] = st.session_state.ug
-                dados_atualizados['Nome Ativo'] = st.session_state.nome_ativo
-                dados_atualizados['Tipo de ocorrência'] = st.session_state.tipo_ocorrencia
-                dados_atualizados['Ocorrência'] = st.session_state.ocorrencia
-                dados_atualizados['Operador'] = st.session_state.operador
-                dados_atualizados['Descrição'] = st.session_state.descricao
-                dados_atualizados['OS'] = st.session_state.os
-                dados_atualizados['Protocolo'] = st.session_state.protocolo
-
-                def format_dt(dt_obj):
-                    return dt_obj.strftime('%Y-%m-%d %H:%M:%S') if dt_obj else ''
-
-                dados_atualizados['Normalização'] = format_dt(combine_date_time(st.session_state.norm_date, st.session_state.norm_time))
-                dados_atualizados['Atendimento Loop'] = format_dt(combine_date_time(st.session_state.loop_date, st.session_state.loop_time))
-                dados_atualizados['Atendimento Terceiros'] = format_dt(combine_date_time(st.session_state.terc_date, st.session_state.terc_time))
-                dados_atualizados['Cliente Avisado'] = format_dt(combine_date_time(st.session_state.avis_date, st.session_state.avis_time))
-
-                # Monta linha para planilha
-                linha_para_atualizar = []
-                for h in headers:
-                    h_strip = h.strip()
-                    key_title_case = MAPA_RENOMEAR.get(h_strip.upper(), h_strip)
-                    valor = dados_atualizados.get(key_title_case, '')
-                    if isinstance(valor, (datetime, pd.Timestamp)):
-                        valor = valor.strftime('%Y-%m-%d %H:%M:%S')
-                    linha_para_atualizar.append(valor)
-
-                # Atualiza no Google Sheets
-                worksheet.update(f'A{row_to_edit}', [linha_para_atualizar], value_input_option='USER_ENTERED')
-
-                # ARMAZENA DADOS NO SESSION STATE PARA CARD DE SUCESSO E LIMPA ID
-                st.session_state['edited_occurrence_feedback'] = dados_atualizados
-                st.session_state.pop('id_unico_para_editar', None)
-                st.cache_data.clear()
-                
-                st.rerun()
-
-            except Exception as e:
-                st.error(f"Ocorreu um erro ao atualizar a Planilha Google: {e}")
-
-finally:
-    # Desliga overlay em qualquer caminho
-    overlay_off()
+    if st.button("Cancelar Edição"):
+        del st.session_state['id_unico_para_editar']
+        st.rerun()
