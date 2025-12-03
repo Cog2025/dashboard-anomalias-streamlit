@@ -96,30 +96,42 @@ meses_cronologicos = list(meses_traducao.values())
 # --- 3. CSS (Original) ---
 st.markdown("""
 <style>
+    /* --- 1. BOTÕES INTELIGENTES (A mágica acontece aqui) --- */
     .stButton > button {
+        /* Estilo Visual (Cores e Borda) */
         background-color: #28a745;
         color: white;
-        font-weight: bold;
-        border-radius: 5px;
-        padding: 10px 20px;
-        width: 100%;
         border: none;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: background-color 0.3s;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.3s;
+        
+        /* Comportamento de Tamanho */
+        width: 100%;
+        min-height: 40px; /* Garante altura para o dedo no celular */
+        
+        /* --- RESPONSIVIDADE DA FONTE E TEXTO --- */
+        white-space: nowrap;        /* Proíbe o texto de quebrar linha (ficar vertical) */
+        overflow: hidden;           /* Esconde o que vazar */
+        text-overflow: ellipsis;    /* Coloca "..." se o texto for muito grande pro botão */
+        
+        /* AQUI ESTÁ A SOLUÇÃO: Fonte Fluida */
+        /* A fonte será 3% da largura da tela, mas nunca menor que 10px e nunca maior que 16px */
+        font-size: clamp(10px, 3vw, 16px) !important;
+        
+        /* Padding reduzido para caber mais texto */
+        padding: 4px 4px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
-    .stButton > button:hover { background-color: #218838; }
-    .kpi-card {
-        background-color: #333333;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        margin-bottom: 20px;
-    }
-    .kpi-value { font-size: 3em; font-weight: bold; color: #FF4B4B; }
-    .kpi-label { font-size: 1.2em; color: #FFFFFF; }
-    .stMultiSelect { max-height: 200px; overflow-y: auto; }
-    .column-header { font-weight: bold; font-size: 1.2em; }
     
+    .stButton > button:hover { 
+        background-color: #218838;
+        transform: scale(1.02); /* Efeito de clique sutil */
+    }
+
+    /* --- 2. CARDS DE DETALHES (Mantendo o vermelho bonito) --- */
     .card-container {
         background-color: #FF4B4B;
         color: white;
@@ -130,32 +142,39 @@ st.markdown("""
         height: 100%;
     }
     .card-title {
-        font-size: 1.5em; font-weight: bold; color: white;
+        font-size: 1.2em; font-weight: bold; color: white;
         border-bottom: 1px solid rgba(255,255,255,0.5);
         padding-bottom: 5px; margin-bottom: 10px;
     }
-    .card-item { margin-bottom: 5px; font-size: 1em; }
+    .card-item { margin-bottom: 5px; font-size: 0.9em; }
     .card-label { font-weight: bold; }
-    
-    .streamlit-dataframe table td {
-        word-break: break-word;
-        white-space: normal;
-    }
 
-    .top-block {
-    border: 2px solid rgba(255,255,255,0.15);
-    border-radius: 12px;
-    padding: 16px 16px 8px 16px;
-    margin-bottom: 28px;
-    background: #111418;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+    /* --- 3. KPIs (Títulos Grandes) --- */
+    .kpi-card {
+        background-color: #333333;
+        padding: 10px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 10px;
     }
-    .top-block h1 { margin-top: 0; }
-    @media (max-width: 768px) {
-    .top-block { padding: 12px; }
+    .kpi-value { 
+        font-size: clamp(1.8rem, 5vw, 3rem); /* Fonte responsiva também no KPI */
+        font-weight: bold; 
+        color: #FF4B4B; 
     }
-    </style>
-    """, unsafe_allow_html=True)
+    .kpi-label { font-size: 1em; color: #FFFFFF; }
+
+    /* --- 4. AJUSTE PARA CELULAR (Forçar fonte pequena) --- */
+    @media (max-width: 600px) {
+        .stButton > button {
+            font-size: 11px !important; /* Trava em 11px no celular */
+            padding: 2px !important;    /* Quase sem borda interna */
+        }
+        /* Ajuste fino para os títulos das colunas não ficarem gigantes */
+        h1, h2, h3 { text-align: center; }
+    }
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <style>
