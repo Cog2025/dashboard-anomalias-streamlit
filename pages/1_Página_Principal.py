@@ -123,21 +123,20 @@ st.markdown(
   padding-right: 1rem !important;
 }
 
-/* Layout base: linhas horizontais de colunas flexíveis */
+/* Layout: linhas horizontais de colunas flexíveis */
 [data-testid="stHorizontalBlock"]{
   display:flex !important;
   flex-wrap:wrap !important;
-  flex-direction:row !important;
   gap:12px !important;
 }
 
-/* Colunas base: lado a lado em tela cheia */
+/* Colunas base */
 [data-testid="column"]{
   flex:1 1 320px !important;
   min-width:280px !important;
 }
 
-/* Wrapper dos botões: largura total da coluna */
+/* Wrapper dos botões */
 .stButton{
   width:100%;
 }
@@ -199,16 +198,6 @@ div[data-baseweb="select"] div{
 /* Títulos */
 h1{
   font-size:clamp(1.6rem, 5vw, 2.6rem) !important; text-align:center;
-}
-
-/* Em telas médias/grandes abaixo de X px (ajuste X à sua meia tela),
-   empilhar colunas de cada bloco horizontal -> Sel. Todos / Desmarcar ficam um abaixo do outro */
-@media (max-width:1500px){
-  [data-testid="stHorizontalBlock"]{
-    flex-direction:column !important;
-    flex-wrap:nowrap !important;
-    align-items:stretch !important;
-  }
 }
 
 /* Em telas médias, botões um pouco mais compactos */
