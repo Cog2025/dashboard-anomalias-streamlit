@@ -198,16 +198,23 @@ h1{
   font-size:clamp(1.6rem, 5vw, 2.6rem) !important; text-align:center;
 }
 
-/* Breakpoints progressivos das colunas */
+/* Breakpoints das colunas */
 @media (max-width:1400px){
-  [data-testid="column"]{ flex-basis:360px !important; min-width:300px !important; }
+  [data-testid="column"]{
+    flex-basis:360px !important;
+    min-width:300px !important;
+  }
 }
+
+/* A partir de ~meia tela, cada coluna ocupa 100% -> empilha tudo,
+   inclusive Sel. Todos / Desmarcar */
 @media (max-width:1100px){
-  [data-testid="column"]{ flex-basis:320px !important; min-width:280px !important; }
+  [data-testid="column"]{
+    flex-basis:100% !important;
+    min-width:100% !important;
+  }
 }
-@media (max-width:900px){
-  [data-testid="column"]{ flex-basis:100% !important; min-width:100% !important; }
-}
+
 
 /* Em telas médias, botões um pouco mais compactos */
 @media (max-width:1200px){
