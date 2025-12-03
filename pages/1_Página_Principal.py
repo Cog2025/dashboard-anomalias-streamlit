@@ -219,7 +219,7 @@ h1{
     display:block !important;
     width:100% !important;
   }
-  .stButton button{
+    .stButton button{
     width:100% !important;
     margin-right:0 !important;
     margin-bottom:4px !important;
