@@ -125,6 +125,7 @@ st.markdown(
   font-size:clamp(12px, 2.3vw, 14px); font-weight:500;
   white-space:normal !important; word-break:normal !important; overflow-wrap:anywhere !important;
   margin-right:4px !important;
+  margin-bottom:6px !important;
 }
 
 /* Select/Multiselect */
@@ -202,7 +203,6 @@ h1{
   .stButton button{
     width:100% !important;
     margin-right:0 !important;
-    margin-bottom:4px !important;
   }
 }
 </style>
@@ -348,7 +348,7 @@ with st.container(border=True):
             unsafe_allow_html=True,
         )
 
-# --- 6. Inicialização de filtros (compartilhados com página principal) ---
+# --- 6. Inicialização de filtros ---
 st.header("OCORRÊNCIAS FILTRADAS")
 
 if "filtros_meses" not in st.session_state:
@@ -425,7 +425,7 @@ with col_left:
         st.session_state.cache_buster = int(pytime.time())
         st.rerun()
 
-# Função de marcação para anos/meses/dias
+
 def _marcar(
     prefixo_key: str,
     itens: list,
@@ -606,7 +606,7 @@ if not df.empty:
                     if st.session_state.get(f"cb_dia_{d}", False)
                 ]
 
-# --- Filtros Adicionais (somente sobre resolvidas) ---
+# --- Filtros Adicionais (sobre resolvidas) ---
 st.subheader("Filtros Adicionais")
 
 df_ref = df[~df["Normalização"].isna()].copy()
@@ -656,7 +656,16 @@ st.session_state.filtros_ativos = [
     x for x in st.session_state.get("filtros_ativos", []) if x in atv_opts
 ]
 
-col_cliente, col_ug, col_tipo, col_ativo, col_ocr = st.columns(5)
+# 3 colunas em cima, 2 embaixo (como página 1)
+row1_c1, row1_c2, row1_c3 = st.columns(3)
+row2_c1, row2_c2 = st.columns(2)
+col_cliente, col_ug, col_tipo, col_ativo, col_ocr = (
+    row1_c1,
+    row1_c2,
+    row1_c3,
+    row2_c1,
+    row2_c2,
+)
 
 with col_cliente:
     with st.container(border=True):
@@ -943,7 +952,7 @@ if not df_resolvidas.empty:
 
     # Cards
     st.header("Detalhes por Ocorrência (Cards)")
-    num_cols = 4
+    num_cols = 2
     rows = list(dfsorted.iterrows())
 
     def fmt_dt(dtobj):
