@@ -208,7 +208,7 @@ h1{
 
 /* A partir de ~meia tela, cada coluna ocupa 100% -> empilha tudo,
    inclusive Sel. Todos / Desmarcar */
-@media (max-width:800px){
+@media (max-width:300px){
   [data-testid="column"]{
     flex-basis:100% !important;
     min-width:100% !important;
