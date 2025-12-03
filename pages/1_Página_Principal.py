@@ -200,7 +200,7 @@ h1{
   font-size:clamp(1.6rem, 5vw, 2.6rem) !important; text-align:center;
 }
 
-/* A partir de ~meia tela (até 2500px),
+/* A partir de ~meia tela (até 2000px),
    cada coluna ocupa 100% -> empilha tudo, inclusive Sel. Todos / Desmarcar */
 @media (max-width:2500px){
   [data-testid="column"]{
