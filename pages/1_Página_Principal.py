@@ -134,10 +134,17 @@ st.markdown(
 }
 
 /* Botões padrão */
+.stButton{
+  display:inline-block;
+  width:49%;
+  vertical-align:top;
+}
+
+/* Botões padrão */
 .stButton button{
   background-color:#28a745; color:#fff; border:none; border-radius:6px;
   box-shadow:0 2px 4px rgba(0,0,0,.2); transition:.2s ease;
-  width:100%;                 /* mantém */
+  width:100%;              /* 100% da largura dos 49% do wrapper */
   min-height:42px; padding:8px 12px;
   font-size:clamp(12px, 2.3vw, 14px); font-weight:500;
   white-space:normal !important; word-break:normal !important; overflow-wrap:anywhere !important;
