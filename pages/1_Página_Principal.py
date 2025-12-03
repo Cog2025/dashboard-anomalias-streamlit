@@ -140,7 +140,7 @@ st.markdown(
   width:100%; min-height:42px; padding:8px 12px;
   font-size:clamp(12px, 2.3vw, 14px); font-weight:500;
   white-space:normal !important; word-break:normal !important; overflow-wrap:anywhere !important;
-  margin-right:4px !important;   /* separa Sel. Todos de Desmarcar */
+  margin-right:4px !important;   /* separa Sel. Todos de Desmarcar quando lado a lado */
 }
 
 /* Select/Multiselect: texto visível, com quebra e altura mínima + limite de altura */
@@ -221,8 +221,6 @@ h1{
     margin-bottom:4px !important;
   }
 }
-
-
 </style>
 """,
     unsafe_allow_html=True,
@@ -590,15 +588,15 @@ if not df_todos_dados.empty:
                         key=f"cb_ano_{ano}",
                         value=(ano in st.session_state.filtros_anos),
                     )
-            col_botoes = st.columns(2)
-            clicked_sel_ano = col_botoes[0].button(
+
+            clicked_sel_ano = st.button(
                 "Sel. Todos",
                 key="sel_ano",
                 use_container_width=True,
                 on_click=_marcar,
                 args=("cb_ano_", anos_disponiveis, "filtros_anos", True),
             )
-            clicked_des_ano = col_botoes[1].button(
+            clicked_des_ano = st.button(
                 "Desmarcar",
                 key="des_ano",
                 use_container_width=True,
@@ -623,15 +621,15 @@ if not df_todos_dados.empty:
                         key=f"cb_mes_{mes}",
                         value=(mes in st.session_state.filtros_meses),
                     )
-            col_botoes = st.columns(2)
-            clicked_sel_mes = col_botoes[0].button(
+
+            clicked_sel_mes = st.button(
                 "Sel. Todos",
                 key="sel_mes",
                 use_container_width=True,
                 on_click=marcar_e_loading,
                 args=("cb_mes_", meses_disponiveis, "filtros_meses", True),
             )
-            clicked_des_mes = col_botoes[1].button(
+            clicked_des_mes = st.button(
                 "Desmarcar",
                 key="des_mes",
                 use_container_width=True,
@@ -652,10 +650,9 @@ if not df_todos_dados.empty:
         with st.container(border=True):
             st.write("### Dia(s):")
             with st.expander("Expandir dias"):
-                num_dias_cols = 5  # ou 4, se preferir ainda mais largo
-                dias_cols = st.columns(num_dias_cols)
+                dias_cols = st.columns(7)
                 for i, dia in enumerate(range(1, 32)):
-                    with dias_cols[i % num_dias_cols]:
+                    with dias_cols[i % 7]:
                         if dia in dias_disponiveis:
                             st.checkbox(
                                 str(dia),
@@ -668,8 +665,8 @@ if not df_todos_dados.empty:
                                 key=f"cb_dia_{dia}",
                                 disabled=True,
                             )
-            col_botoes = st.columns(2)
-            clicked_sel_dia = col_botoes[0].button(
+
+            clicked_sel_dia = st.button(
                 "Sel. Todos",
                 key="sel_dia",
                 use_container_width=True,
@@ -682,7 +679,7 @@ if not df_todos_dados.empty:
                     set(dias_disponiveis),
                 ),
             )
-            clicked_des_dia = col_botoes[1].button(
+            clicked_des_dia = st.button(
                 "Desmarcar",
                 key="des_dia",
                 use_container_width=True,
@@ -725,22 +722,17 @@ with col_cliente:
             [v for v in cli_series.unique().tolist() if v and v != "-" and v != "0"]
         )
 
-        col_b = st.columns(2)
-        with col_b[0]:
-            if st.button("Sel. Todos", key="sel_cli", use_container_width=True):
-                st.session_state.filtros_clientes = cli_opts
-                st.rerun()
-        with col_b[1]:
-            if st.button("Desmarcar", key="des_cli", use_container_width=True):
-                st.session_state.filtros_clientes = []
-                st.rerun()
+        if st.button("Sel. Todos", key="sel_cli", use_container_width=True):
+            st.session_state.filtros_clientes = cli_opts
+            st.rerun()
+        if st.button("Desmarcar", key="des_cli", use_container_width=True):
+            st.session_state.filtros_clientes = []
+            st.rerun()
 
         st.session_state.filtros_clientes = st.multiselect(
             "",
             options=cli_opts,
-            default=[
-                x for x in st.session_state.filtros_clientes if x in cli_opts
-            ],
+            default=[x for x in st.session_state.filtros_clientes if x in cli_opts],
             label_visibility="hidden",
         )
 
@@ -770,15 +762,12 @@ with col_ug:
             ug for ug in st.session_state.filtros_ugs if ug in ugs_disponiveis
         ]
 
-        col_b = st.columns(2)
-        with col_b[0]:
-            if st.button("Sel. Todos", key="sel_ug", use_container_width=True):
-                st.session_state.filtros_ugs = ugs_disponiveis
-                st.rerun()
-        with col_b[1]:
-            if st.button("Desmarcar", key="des_ug", use_container_width=True):
-                st.session_state.filtros_ugs = []
-                st.rerun()
+        if st.button("Sel. Todos", key="sel_ug", use_container_width=True):
+            st.session_state.filtros_ugs = ugs_disponiveis
+            st.rerun()
+        if st.button("Desmarcar", key="des_ug", use_container_width=True):
+            st.session_state.filtros_ugs = []
+            st.rerun()
 
         st.session_state.filtros_ugs = st.multiselect(
             "",
@@ -795,15 +784,12 @@ with col_tipo:
             [x for x in options_from(df_todos_dados["Tipo de ocorrência"]) if x != "-"]
         )
 
-        col_b = st.columns(2)
-        with col_b[0]:
-            if st.button("Sel. Todos", key="sel_tipo", use_container_width=True):
-                st.session_state.filtros_tipos = tip_opts
-                st.rerun()
-        with col_b[1]:
-            if st.button("Desmarcar", key="des_tipo", use_container_width=True):
-                st.session_state.filtros_tipos = []
-                st.rerun()
+        if st.button("Sel. Todos", key="sel_tipo", use_container_width=True):
+            st.session_state.filtros_tipos = tip_opts
+            st.rerun()
+        if st.button("Desmarcar", key="des_tipo", use_container_width=True):
+            st.session_state.filtros_tipos = []
+            st.rerun()
 
         st.session_state.filtros_tipos = [
             x for x in st.session_state.filtros_tipos if x in tip_opts
@@ -823,15 +809,12 @@ with col_ativo:
             [x for x in options_from(df_todos_dados["Ativo"]) if x != "-"]
         )
 
-        col_b = st.columns(2)
-        with col_b[0]:
-            if st.button("Sel. Todos", key="sel_ativo", use_container_width=True):
-                st.session_state.filtros_ativos = atv_opts
-                st.rerun()
-        with col_b[1]:
-            if st.button("Desmarcar", key="des_ativo", use_container_width=True):
-                st.session_state.filtros_ativos = []
-                st.rerun()
+        if st.button("Sel. Todos", key="sel_ativo", use_container_width=True):
+            st.session_state.filtros_ativos = atv_opts
+            st.rerun()
+        if st.button("Desmarcar", key="des_ativo", use_container_width=True):
+            st.session_state.filtros_ativos = []
+            st.rerun()
 
         st.session_state.filtros_ativos = [
             x for x in st.session_state.filtros_ativos if x in atv_opts
@@ -851,15 +834,12 @@ with col_ocorrencia:
             [x for x in options_from(df_todos_dados["Ocorrência"]) if x != "-"]
         )
 
-        col_b = st.columns(2)
-        with col_b[0]:
-            if st.button("Sel. Todos", key="sel_ocorr", use_container_width=True):
-                st.session_state.filtros_ocorrencias = ocr_opts
-                st.rerun()
-        with col_b[1]:
-            if st.button("Desmarcar", key="des_ocorr", use_container_width=True):
-                st.session_state.filtros_ocorrencias = []
-                st.rerun()
+        if st.button("Sel. Todos", key="sel_ocorr", use_container_width=True):
+            st.session_state.filtros_ocorrencias = ocr_opts
+            st.rerun()
+        if st.button("Desmarcar", key="des_ocorr", use_container_width=True):
+            st.session_state.filtros_ocorrencias = []
+            st.rerun()
 
         st.session_state.filtros_ocorrencias = [
             x for x in st.session_state.filtros_ocorrencias if x in ocr_opts
