@@ -137,11 +137,14 @@ st.markdown(
 .stButton button{
   background-color:#28a745; color:#fff; border:none; border-radius:6px;
   box-shadow:0 2px 4px rgba(0,0,0,.2); transition:.2s ease;
-  width:100%; min-height:42px; padding:8px 12px;
+  width:100%;                 /* mantém */
+  min-height:42px; padding:8px 12px;
   font-size:clamp(12px, 2.3vw, 14px); font-weight:500;
   white-space:normal !important; word-break:normal !important; overflow-wrap:anywhere !important;
-  margin-right:4px !important;   /* separa Sel. Todos de Desmarcar quando lado a lado */
+  margin-right:4px !important;
+  margin-bottom:6px !important;
 }
+
 
 /* Select/Multiselect: texto visível, com quebra e altura mínima + limite de altura */
 .stSelectbox > div > div,
@@ -210,7 +213,7 @@ h1{
   }
 }
 
-/* A partir de meia tela pra baixo, empilhar Sel. Todos / Desmarcar */
+/* Empilhar Sel. Todos / Desmarcar só em meia tela pra baixo */
 @media (max-width:1100px){
   .stButton{
     display:block !important;
@@ -222,6 +225,7 @@ h1{
     margin-bottom:4px !important;
   }
 }
+
 
 </style>
 """,
