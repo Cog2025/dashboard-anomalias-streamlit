@@ -96,60 +96,85 @@ meses_cronologicos = list(meses_traducao.values())
 # --- 3. CSS (Original) ---
 st.markdown("""
 <style>
-/* Layout: permitir quebra de linha nas linhas horizontais de colunas */
-[data-testid="stHorizontalBlock"]{
-  display:flex !important; flex-wrap:wrap !important; gap:12px !important;
-}
-/* Cada coluna passa a ser fluida e com largura mínima útil */
-[data-testid="column"]{
-  flex:1 1 320px !important; min-width:280px !important;
-}
+    /* --- 1. BOTÕES INTELIGENTES (A mágica acontece aqui) --- */
+    .stButton > button {
+        /* Estilo Visual (Cores e Borda) */
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.3s;
+        
+        /* Comportamento de Tamanho */
+        width: 100%;
+        min-height: 40px; /* Garante altura para o dedo no celular */
+        
+        /* --- RESPONSIVIDADE DA FONTE E TEXTO --- */
+        white-space: nowrap;        /* Proíbe o texto de quebrar linha (ficar vertical) */
+        overflow: hidden;           /* Esconde o que vazar */
+        text-overflow: ellipsis;    /* Coloca "..." se o texto for muito grande pro botão */
+        
+        /* AQUI ESTÁ A SOLUÇÃO: Fonte Fluida */
+        /* A fonte será 3% da largura da tela, mas nunca menor que 10px e nunca maior que 16px */
+        font-size: clamp(10px, 3vw, 16px) !important;
+        
+        /* Padding reduzido para caber mais texto */
+        padding: 4px 4px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .stButton > button:hover { 
+        background-color: #218838;
+        transform: scale(1.02); /* Efeito de clique sutil */
+    }
 
-/* Botões: evitar quebra vertical e garantir largura mínima */
-.stButton button{
-  background-color:#28a745; color:#fff; border:none; border-radius:6px;
-  box-shadow:0 2px 4px rgba(0,0,0,.2); transition:.2s ease;
-  width:100%; min-height:42px; padding:8px 12px;
-  font-size:clamp(12px, 2.3vw, 14px); font-weight:500;
-  white-space:normal !important; word-break:normal !important; overflow-wrap:anywhere !important;
-}
+    /* --- 2. CARDS DE DETALHES (Mantendo o vermelho bonito) --- */
+    .card-container {
+        background-color: #FF4B4B;
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        height: 100%;
+    }
+    .card-title {
+        font-size: 1.2em; font-weight: bold; color: white;
+        border-bottom: 1px solid rgba(255,255,255,0.5);
+        padding-bottom: 5px; margin-bottom: 10px;
+    }
+    .card-item { margin-bottom: 5px; font-size: 0.9em; }
+    .card-label { font-weight: bold; }
 
-/* Select/Multiselect: texto visível, com quebra e altura mínima */
-.stSelectbox > div > div, .stMultiSelect > div > div{
-  white-space:normal !important; line-height:1.2 !important; min-height:42px !important;
-}
-div[data-baseweb="select"]{ min-height:42px !important; }
-div[data-baseweb="select"] div{
-  white-space:normal !important; overflow:visible !important; text-overflow:clip !important;
-}
+    /* --- 3. KPIs (Títulos Grandes) --- */
+    .kpi-card {
+        background-color: #333333;
+        padding: 10px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    .kpi-value { 
+        font-size: clamp(1.8rem, 5vw, 3rem); /* Fonte responsiva também no KPI */
+        font-weight: bold; 
+        color: #FF4B4B; 
+    }
+    .kpi-label { font-size: 1em; color: #FFFFFF; }
 
-/* KPIs e cards com tamanhos fluidos */
-.kpi-card{ background:#333; padding:clamp(12px, 3vw, 20px); border-radius:10px; text-align:center; }
-.kpi-value{ font-size:clamp(1.6rem, 6vw, 3rem); font-weight:700; color:#FF4B4B; }
-.kpi-label{ font-size:clamp(.85rem, 2.5vw, 1rem); color:#fff; }
-.card-container{ background:#FF4B4B; color:#fff; padding:clamp(12px, 3vw, 16px); border-radius:8px; box-shadow:0 4px 8px rgba(0,0,0,.2); word-wrap:break-word; }
-.card-title{ font-size:clamp(1rem, 3vw, 1.2rem); font-weight:700; border-bottom:1px solid rgba(255,255,255,.45); padding-bottom:6px; margin-bottom:10px; }
-.card-item{ font-size:clamp(.8rem, 2.1vw, .95rem); line-height:1.35; margin-bottom:6px; }
-
-/* Títulos */
-h1{ font-size:clamp(1.6rem, 5vw, 2.6rem) !important; text-align:center; }
-
-/* Breakpoints progressivos */
-@media (max-width:1400px){
-  [data-testid="column"]{ flex-basis:360px !important; min-width:300px !important; }
-  .stButton button{ min-width:110px !important; }
-}
-@media (max-width:1100px){
-  [data-testid="column"]{ flex-basis:320px !important; min-width:280px !important; }
-  .stButton button{ min-width:100px !important; }
-}
-@media (max-width:900px){
-  [data-testid="column"]{ flex-basis:100% !important; min-width:100% !important; }
-  .stButton button{ min-width:96px !important; }
-}
+    /* --- 4. AJUSTE PARA CELULAR (Forçar fonte pequena) --- */
+    @media (max-width: 600px) {
+        .stButton > button {
+            font-size: 11px !important; /* Trava em 11px no celular */
+            padding: 2px !important;    /* Quase sem borda interna */
+        }
+        /* Ajuste fino para os títulos das colunas não ficarem gigantes */
+        h1, h2, h3 { text-align: center; }
+    }
 </style>
 """, unsafe_allow_html=True)
-
 
 st.markdown("""
 <style>
@@ -439,169 +464,114 @@ if not df_todos_dados.empty:
             if not (clicked_sel_dia or clicked_des_dia):
                 st.session_state.filtros_dias = [d for d in dias_disponiveis if st.session_state.get(f'cb_dia_{d}', False)]
 
-    # --- Filtros Adicionais ---
-st.subheader("Filtros Adicionais")
+    st.subheader("Filtros Adicionais")
+    col_cliente, col_ug, col_tipo, col_ativo, col_ocorrencia = st.columns(5)
 
-# Agora em duas linhas: 3 colunas na primeira linha, 2 na segunda
-row1_c1, row1_c2, row1_c3 = st.columns(3)
-row2_c1, row2_c2 = st.columns(2)
-col_cliente, col_ug, col_tipo, col_ativo, col_ocorrencia = (
-    row1_c1, row1_c2, row1_c3, row2_c1, row2_c2
-)
+    with col_cliente:
+        with st.container(border=True):
+            st.write("Cliente:")
+            cli_series = df_todos_dados['Cliente'].astype(str).map(_collapse_spaces)
+            cli_opts = sorted([v for v in cli_series.unique().tolist() if v and v != "-" and v != "0"])
 
-# --- Cliente ---
-with col_cliente:
-    with st.container(border=True):
-        st.write("Cliente")
-        cli_series = df_todos_dados["Cliente"].astype(str).map(_collapse_spaces)
-        cli_opts = sorted(
-            [v for v in cli_series.unique().tolist() if v and v != "-" and v != "0"]
-        )
+            col_b = st.columns(2)
+            with col_b[0]:
+                if st.button('Sel. Todos', key='sel_cli', use_container_width=True):
+                    st.session_state.filtros_clientes = cli_opts; st.rerun()
+            with col_b[1]:
+                if st.button('Desmarcar', key='des_cli', use_container_width=True):
+                    st.session_state.filtros_clientes = []; st.rerun()
 
-        col_b = st.columns(2)
-        with col_b[0]:
-            if st.button("Sel. Todos", key="sel_cli", use_container_width=True):
-                st.session_state.filtros_clientes = cli_opts
-                st.rerun()
-        with col_b[1]:
-            if st.button("Desmarcar", key="des_cli", use_container_width=True):
-                st.session_state.filtros_clientes = []
-                st.rerun()
+            st.session_state.filtros_clientes = st.multiselect(
+                ' ', options=cli_opts,
+                default=[x for x in st.session_state.filtros_clientes if x in cli_opts],
+                label_visibility='hidden'
+            )
 
-        st.session_state.filtros_clientes = st.multiselect(
-            "",
-            options=cli_opts,
-            default=[x for x in st.session_state.filtros_clientes if x in cli_opts],
-            label_visibility="hidden",
-        )
+    with col_ug:
+        with st.container(border=True):
+            st.write("UG:")
+            if 'Cliente' in df_todos_dados.columns and st.session_state.filtros_clientes:
+                df_temp = df_todos_dados[df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)]
+            else:
+                df_temp = df_todos_dados
 
-# --- UG ---
-with col_ug:
-    with st.container(border=True):
-        st.write("UG")
+            ugs_series = df_temp['UG'].astype(str).map(_collapse_spaces) if 'UG' in df_temp.columns else pd.Series([], dtype=str)
+            ugs_disponiveis = sorted([u for u in ugs_series.unique().tolist() if u and u != "-"])
+            st.session_state.filtros_ugs = [ug for ug in st.session_state.filtros_ugs if ug in ugs_disponiveis]
 
-        if "Cliente" in df_todos_dados.columns and st.session_state.filtros_clientes:
-            df_temp = df_todos_dados[
-                df_todos_dados["Cliente"].isin(st.session_state.filtros_clientes)
-            ]
-        else:
-            df_temp = df_todos_dados
+            col_b = st.columns(2)
+            with col_b[0]:
+                if st.button('Sel. Todos', key='sel_ug', use_container_width=True):
+                    st.session_state.filtros_ugs = ugs_disponiveis; st.rerun()
+            with col_b[1]:
+                if st.button('Desmarcar', key='des_ug', use_container_width=True):
+                    st.session_state.filtros_ugs = []; st.rerun()
 
-        ugs_series = (
-            df_temp["UG"].astype(str).map(_collapse_spaces)
-            if "UG" in df_temp.columns
-            else pd.Series([], dtype=str)
-        )
-        ugs_disponiveis = sorted(
-            [u for u in ugs_series.unique().tolist() if u and u != "-"]
-        )
+            st.session_state.filtros_ugs = st.multiselect(
+                ' ', options=ugs_disponiveis,
+                default=st.session_state.filtros_ugs,
+                label_visibility='hidden'
+            )
 
-        # mantém apenas UG válidas no estado
-        st.session_state.filtros_ugs = [
-            ug for ug in st.session_state.filtros_ugs if ug in ugs_disponiveis
-        ]
+    with col_tipo:
+        with st.container(border=True):
+            st.write("Tipo de Ocorrência:")
+            tip_opts = sorted([x for x in options_from(df_todos_dados['Tipo de ocorrência']) if x != "-"])
 
-        col_b = st.columns(2)
-        with col_b[0]:
-            if st.button("Sel. Todos", key="sel_ug", use_container_width=True):
-                st.session_state.filtros_ugs = ugs_disponiveis
-                st.rerun()
-        with col_b[1]:
-            if st.button("Desmarcar", key="des_ug", use_container_width=True):
-                st.session_state.filtros_ugs = []
-                st.rerun()
+            col_b = st.columns(2)
+            with col_b[0]:
+                if st.button('Sel. Todos', key='sel_tipo', use_container_width=True):
+                    st.session_state.filtros_tipos = tip_opts; st.rerun()
+            with col_b[1]:
+                if st.button('Desmarcar', key='des_tipo', use_container_width=True):
+                    st.session_state.filtros_tipos = []; st.rerun()
 
-        st.session_state.filtros_ugs = st.multiselect(
-            "",
-            options=ugs_disponiveis,
-            default=st.session_state.filtros_ugs,
-            label_visibility="hidden",
-        )
+            st.session_state.filtros_tipos = [x for x in st.session_state.filtros_tipos if x in tip_opts]
+            st.session_state.filtros_tipos = st.multiselect(
+                ' ', options=tip_opts,
+                default=st.session_state.filtros_tipos,
+                label_visibility='hidden'
+            )
 
-# --- Tipo de Ocorrência ---
-with col_tipo:
-    with st.container(border=True):
-        st.write("Tipo de Ocorrência")
-        tip_opts = sorted(
-            [x for x in options_from(df_todos_dados["Tipo de ocorrência"]) if x != "-"]
-        )
+    with col_ativo:
+        with st.container(border=True):
+            st.write("Ativo:")
+            atv_opts = sorted([x for x in options_from(df_todos_dados['Ativo']) if x != "-"])
 
-        col_b = st.columns(2)
-        with col_b[0]:
-            if st.button("Sel. Todos", key="sel_tipo", use_container_width=True):
-                st.session_state.filtros_tipos = tip_opts
-                st.rerun()
-        with col_b[1]:
-            if st.button("Desmarcar", key="des_tipo", use_container_width=True):
-                st.session_state.filtros_tipos = []
-                st.rerun()
+            col_b = st.columns(2)
+            with col_b[0]:
+                if st.button('Sel. Todos', key='sel_ativo', use_container_width=True):
+                    st.session_state.filtros_ativos = atv_opts; st.rerun()
+            with col_b[1]:
+                if st.button('Desmarcar', key='des_ativo', use_container_width=True):
+                    st.session_state.filtros_ativos = []; st.rerun()
 
-        st.session_state.filtros_tipos = [
-            x for x in st.session_state.filtros_tipos if x in tip_opts
-        ]
-        st.session_state.filtros_tipos = st.multiselect(
-            "",
-            options=tip_opts,
-            default=st.session_state.filtros_tipos,
-            label_visibility="hidden",
-        )
+            st.session_state.filtros_ativos = [x for x in st.session_state.filtros_ativos if x in atv_opts]
+            st.session_state.filtros_ativos = st.multiselect(
+                ' ', options=atv_opts,
+                default=st.session_state.filtros_ativos,
+                label_visibility='hidden'
+            )
 
-# --- Ativo ---
-with col_ativo:
-    with st.container(border=True):
-        st.write("Ativo")
-        atv_opts = sorted(
-            [x for x in options_from(df_todos_dados["Ativo"]) if x != "-"]
-        )
+    with col_ocorrencia:
+        with st.container(border=True):
+            st.write("Ocorrência:")
+            ocr_opts = sorted([x for x in options_from(df_todos_dados['Ocorrência']) if x != "-"])
 
-        col_b = st.columns(2)
-        with col_b[0]:
-            if st.button("Sel. Todos", key="sel_ativo", use_container_width=True):
-                st.session_state.filtros_ativos = atv_opts
-                st.rerun()
-        with col_b[1]:
-            if st.button("Desmarcar", key="des_ativo", use_container_width=True):
-                st.session_state.filtros_ativos = []
-                st.rerun()
+            col_b = st.columns(2)
+            with col_b[0]:
+                if st.button('Sel. Todos', key='sel_ocorr', use_container_width=True):
+                    st.session_state.filtros_ocorrencias = ocr_opts; st.rerun()
+            with col_b[1]:
+                if st.button('Desmarcar', key='des_ocorr', use_container_width=True):
+                    st.session_state.filtros_ocorrencias = []; st.rerun()
 
-        st.session_state.filtros_ativos = [
-            x for x in st.session_state.filtros_ativos if x in atv_opts
-        ]
-        st.session_state.filtros_ativos = st.multiselect(
-            "",
-            options=atv_opts,
-            default=st.session_state.filtros_ativos,
-            label_visibility="hidden",
-        )
-
-# --- Ocorrência ---
-with col_ocorrencia:
-    with st.container(border=True):
-        st.write("Ocorrência")
-        ocr_opts = sorted(
-            [x for x in options_from(df_todos_dados["Ocorrência"]) if x != "-"]
-        )
-
-        col_b = st.columns(2)
-        with col_b[0]:
-            if st.button("Sel. Todos", key="sel_ocorr", use_container_width=True):
-                st.session_state.filtros_ocorrencias = ocr_opts
-                st.rerun()
-        with col_b[1]:
-            if st.button("Desmarcar", key="des_ocorr", use_container_width=True):
-                st.session_state.filtros_ocorrencias = []
-                st.rerun()
-
-        st.session_state.filtros_ocorrencias = [
-            x for x in st.session_state.filtros_ocorrencias if x in ocr_opts
-        ]
-        st.session_state.filtros_ocorrencias = st.multiselect(
-            "",
-            options=ocr_opts,
-            default=st.session_state.filtros_ocorrencias,
-            label_visibility="hidden",
-        )
-
+            st.session_state.filtros_ocorrencias = [x for x in st.session_state.filtros_ocorrencias if x in ocr_opts]
+            st.session_state.filtros_ocorrencias = st.multiselect(
+                ' ', options=ocr_opts,
+                default=st.session_state.filtros_ocorrencias,
+                label_visibility='hidden'
+            )
 
     # --- Aplicação dos Filtros ---
     meses_selecionados = [mes for mes in meses_cronologicos if st.session_state.get(f'cb_mes_{mes}', False)]
@@ -634,249 +604,176 @@ with col_ocorrencia:
     m_atv = matches_any_canon(df_todos_dados['Ativo'],   st.session_state.filtros_ativos)
     m_ocr = matches_any_canon(df_todos_dados['Ocorrência'],         st.session_state.filtros_ocorrencias)
 
-    # --- Aplicação dos Filtros ---
     df_filtrado = df_todos_dados[m_ano & m_mes & m_dia & m_cat & m_cli & m_ug & m_tip & m_atv & m_ocr].copy()
-
-    df_desligadas = df_filtrado[
-        pd.isna(df_filtrado["Normalização"]) | (df_filtrado["Normalização"] == "")
-    ].copy()
-
+    df_desligadas = df_filtrado[pd.isna(df_filtrado['Normalização']) | (df_filtrado['Normalização'] == '')].copy()
+    
     with col_kpi2:
-        st.markdown(
-            f"""
-            <div class="kpi-card">
-                <div class="kpi-label">Total com Filtro Selecionado</div>
-                <div class="kpi-value">{len(df_desligadas)}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-label">Total com Filtro Selecionado</div>
+            <div class="kpi-value">{len(df_desligadas)}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
     if not df_desligadas.empty:
-        maskvalid = df_desligadas["Desligamento"].notna()
-        df_desligadas.loc[maskvalid, "Tempo em Segundos"] = (
-            datetime.now() - df_desligadas.loc[maskvalid, "Desligamento"]
-        ).dt.total_seconds().astype(int)
-        df_desligadas.loc[~maskvalid, "Tempo em Segundos"] = 0
+        mask_valid = df_desligadas['Desligamento'].notna()
+        df_desligadas.loc[mask_valid, 'Tempo em Segundos'] = (
+            (datetime.now() - df_desligadas.loc[mask_valid, 'Desligamento']).dt.total_seconds().astype(int)
+        )
+        df_desligadas.loc[~mask_valid, 'Tempo em Segundos'] = 0
 
         # --- CONTROLES DE ORDENAÇÃO ---
         st.markdown("---")
-        st.write("Ordenar e Editar")
-
-        sortcols = st.columns(2)
-        with sortcols[0]:
-            sortoptionsdisplay = {
-                "Data do Desligamento": "Desligamento",
-                "Tempo de Desligamento": "Tempo em Segundos",
-                "UG": "UG",
-                "Ativo": "Ativo",
+        st.write("### Ordenar e Editar")
+        sort_cols = st.columns(2)
+        
+        with sort_cols[0]:
+            sort_options_display = {
+                'Data do Desligamento': 'Desligamento',
+                'Tempo de Desligamento': 'Tempo em Segundos',
+                'UG': 'UG',
+                'Ativo': 'Ativo'
             }
-            sortbydisplay = st.selectbox(
-                "Ordenar por",
-                options=sortoptionsdisplay.keys(),
-                index=0,
-            )
-            sortbycolumn = sortoptionsdisplay[sortbydisplay]
+            sort_by_display = st.selectbox("Ordenar por:", options=sort_options_display.keys(), index=0)
+            sort_by_column = sort_options_display[sort_by_display]
 
-        with sortcols[1]:
-            sortorder = st.radio(
-                "Ordem",
-                options=["Descendente", "Ascendente"],
-                index=0,
-                horizontal=True,
-            )
-            isascending = sortorder == "Ascendente"
+        with sort_cols[1]:
+            sort_order = st.radio("Ordem:", options=['Descendente', 'Ascendente'], index=0, horizontal=True)
+            is_ascending = (sort_order == 'Ascendente')
 
-        dfsorted = df_desligadas.sort_values(
-            by=sortbycolumn, ascending=isascending, na_position="last"
+        df_sorted = df_desligadas.sort_values(by=sort_by_column, ascending=is_ascending, na_position='last')
+
+        df_sorted['Display'] = (
+            df_sorted['UG'].astype(str) + " | " + df_sorted['Ativo'].astype(str) + " | " +
+            df_sorted['Nome Ativo'].astype(str) + " | " + df_sorted['Ocorrência'].astype(str) + " | " +
+            df_sorted['Desligamento'].dt.strftime('%d/%m/%Y %H:%M').fillna('') + 
+            "  ·  " + df_sorted['ID_Unico'].astype(str).str[-6:]
         )
+        
+        cols_minimos = ['ID_Unico','UG','Ativo','Nome Ativo','Ocorrência','Desligamento','Categoria',
+                        'Tipo de ocorrência','Operador','Descrição','OS','Protocolo',
+                        'Normalização','Atendimento Loop','Atendimento Terceiros','Cliente Avisado']
+        cols_salvar = [c for c in cols_minimos if c in df_sorted.columns] + ['Display']
+        st.session_state['df_lista_para_editar'] = df_sorted[cols_salvar].copy()
 
-        dfsorted["Display"] = (
-            dfsorted["UG"].astype(str)
-            + " | "
-            + dfsorted["Ativo"].astype(str)
-            + " | "
-            + dfsorted["Nome Ativo"].astype(str)
-            + " | "
-            + dfsorted["Ocorrência"].astype(str)
-            + " | "
-            + dfsorted["Desligamento"].dt.strftime("%d/%m/%Y %H:%M").fillna("")
-            + " | "
-            + dfsorted["ID_Unico"].astype(str).str[-6:]
-        )
-
-        colsminimos = [
-            "ID_Unico",
-            "UG",
-            "Ativo",
-            "Nome Ativo",
-            "Ocorrência",
-            "Desligamento",
-            "Categoria",
-            "Tipo de ocorrência",
-            "Operador",
-            "Descrição",
-            "OS",
-            "Protocolo",
-            "Normalização",
-            "Atendimento Loop",
-            "Atendimento Terceiros",
-            "Cliente Avisado",
-        ]
-        colssalvar = [c for c in colsminimos if c in dfsorted.columns]
-        st.session_state["df_lista_para_editar"] = dfsorted[colssalvar].copy()
-
-        # --- SELEÇÃO PARA EDIÇÃO ---
+        # ***** NOVO: SELEÇÃO PARA EDIÇÃO *****
         st.markdown("---")
-        st.write("Editar uma Ocorrência")
+        st.write("### Editar uma Ocorrência")
 
-        opts = dfsorted["Display"].dropna().astype(str).tolist()
-        ocorrenciaselecionadadisplay = st.selectbox(
-            "Selecione a ocorrência para editar",
+        opts = df_sorted['Display'].dropna().astype(str).tolist()
+        ocorrencia_selecionada_display = st.selectbox(
+            "Selecione a ocorrência para editar:",
             options=opts,
             index=None,
-            placeholder="Escolha uma ocorrência...",
+            placeholder="Escolha uma ocorrência..."
         )
 
-        if ocorrenciaselecionadadisplay:
-            idunicoparaeditar = (
-                dfsorted.loc[dfsorted["Display"] == ocorrenciaselecionadadisplay, "ID_Unico"]
-                .head(1)
-                .item()
-            )
-            st.session_state["id_unico_para_editar"] = idunicoparaeditar
+        if ocorrencia_selecionada_display:
+            id_unico_para_editar = df_sorted.loc[
+                df_sorted['Display'] == ocorrencia_selecionada_display, 'ID_Unico'
+            ].head(1).item()
+            st.session_state['id_unico_para_editar'] = id_unico_para_editar
 
-        if (not ocorrenciaselecionadadisplay) and "id_unico_para_editar" in st.session_state:
-            st.session_state.pop("id_unico_para_editar")
+        if not ocorrencia_selecionada_display and 'id_unico_para_editar' in st.session_state:
+            st.session_state.pop('id_unico_para_editar')
 
-        btndisabled = not bool(ocorrenciaselecionadadisplay)
-        if st.button(
-            "Editar Ocorrência Selecionada",
-            disabled=btndisabled,
-            use_container_width=True,
-        ):
-            st.switch_page("pages/3_Editar_Ocorrencia.py")
+        btn_disabled = not bool(ocorrencia_selecionada_display)
+        if st.button("📝 Editar Ocorrência Selecionada", disabled=btn_disabled):
+            st.switch_page("pages/3_Editar_Ocorrência.py")
 
         # --- LISTA DE OCORRÊNCIAS (TABELA) ---
         st.header("Lista de Ocorrências (Tabela)")
-
-        dfparatabela = dfsorted.copy()
-
-        def formatartempoestatico(row):
-            dias = row["Tempo em Segundos"] // 86400
-            horas = (row["Tempo em Segundos"] % 86400) // 3600
-            minutos = (row["Tempo em Segundos"] % 3600) // 60
+        df_para_tabela = df_sorted.copy()
+        
+        def formatar_tempo_estatico(row):
+            dias = row['Tempo em Segundos'] // 86400
+            horas = (row['Tempo em Segundos'] % 86400) // 3600
+            minutos = (row['Tempo em Segundos'] % 3600) // 60
             return f"{dias}d {horas}h {minutos}m"
-
-        dfparatabela["Tempo de Desligamento"] = dfparatabela.apply(
-            formatartempoestatico, axis=1
-        )
-        dfparatabela.reset_index(inplace=True, drop=True)
-        dfparatabela["Linha"] = dfparatabela.index + 1
-
-        st.dataframe(
-            dfparatabela[
-                [
-                    "Linha",
-                    "Categoria",
-                    "Tempo de Desligamento",
-                    "UG",
-                    "Data",
-                    "Hora",
-                    "Tipo de ocorrência",
-                    "Ativo",
-                    "Ocorrência",
-                    "Operador",
-                    "Descrição",
-                    "OS",
-                ]
-            ],
-            use_container_width=True,
-        )
+        
+        df_para_tabela['Tempo de Desligamento'] = df_para_tabela.apply(formatar_tempo_estatico, axis=1)
+        df_para_tabela.reset_index(inplace=True, drop=True)
+        df_para_tabela['Linha'] = df_para_tabela.index + 1
+        
+        st.dataframe(df_para_tabela[[
+            'Linha', 'Categoria', 'Tempo de Desligamento', 'UG', 'Data', 'Hora', 'Tipo de ocorrência', 
+            'Ativo', 'Ocorrência', 'Operador', 'Descrição', 'OS'
+        ]], use_container_width=True)
 
         # --- DETALHES POR OCORRÊNCIA (CARDS) ---
         st.header("Detalhes por Ocorrência (Cards)")
-
-        num_cols = 2
-        rows = list(dfsorted.iterrows())
-
-        def formatdatetimecard(dtobj):
-            if pd.notna(dtobj):
-                return dtobj.strftime("%d/%m/%Y"), dtobj.strftime("%H:%M")
-            return "", ""
+        
+        num_cols = 4
+        rows = list(df_sorted.iterrows())
+        
+        def format_datetime_card(dt_obj):
+            if pd.notna(dt_obj):
+                return dt_obj.strftime('%d/%m/%Y'), dt_obj.strftime('%H:%M')
+            return '', ''
 
         for i in range(0, len(rows), num_cols):
             cols = st.columns(num_cols)
             for j in range(num_cols):
-                if i + j >= len(rows):
-                    continue
+                if i + j < len(rows):
+                    index, row = rows[i + j]
+                    with cols[j]:
+                        cliente   = html.escape(str(row.get("Cliente", "")))
+                        categoria = html.escape(str(row.get("Categoria", "")))
+                        ug = html.escape(str(row.get("UG", "N/A")))
+                        tipo_ocorrencia = html.escape(str(row.get("Tipo de ocorrência", "")))
+                        ativo = html.escape(str(row.get("Ativo", "")))
+                        nome_ativo = html.escape(str(row.get("Nome Ativo", "")))
+                        ocorrencia = html.escape(str(row.get("Ocorrência", "")))
+                        operador = html.escape(str(row.get("Operador", "")))
+                        descricao = html.escape(str(row.get("Descrição", ""))).replace('\n', '<br>')
+                        protocolo = html.escape(str(row.get("Protocolo", "")))
+                        os = html.escape(str(row.get("OS", "")))
 
-                index, row = rows[i + j]
-                with cols[j]:
-                    cliente = html.escape(str(row.get("Cliente", "")))
-                    categoria = html.escape(str(row.get("Categoria", "")))
-                    ug = html.escape(str(row.get("UG", "N/A")))
-                    tipoocorrencia = html.escape(str(row.get("Tipo de ocorrência", "")))
-                    ativo = html.escape(str(row.get("Ativo", "")))
-                    nomeativo = html.escape(str(row.get("Nome Ativo", "")))
-                    ocorrencia = html.escape(str(row.get("Ocorrência", "")))
-                    operador = html.escape(str(row.get("Operador", "")))
-                    descricao = html.escape(str(row.get("Descrição", ""))).replace(
-                        "\\n", "<br>"
-                    )
-                    protocolo = html.escape(str(row.get("Protocolo", "")))
-                    os = html.escape(str(row.get("OS", "")))
+                        data_ocor, hora_ocor = format_datetime_card(row.get('Desligamento'))
+                        data_ca, hora_ca = format_datetime_card(row.get('Cliente Avisado'))
+                        data_loop, hora_loop = format_datetime_card(row.get('Atendimento Loop'))
+                        data_terc, hora_terc = format_datetime_card(row.get('Atendimento Terceiros'))
+                        data_norm, hora_norm = format_datetime_card(row.get('Normalização'))
 
-                    dataocor, horaocor = formatdatetimecard(row.get("Desligamento"))
-                    dataca, horaca = formatdatetimecard(row.get("Cliente Avisado"))
-                    dataloop, horaloop = formatdatetimecard(row.get("Atendimento Loop"))
-                    dataterc, horaterc = formatdatetimecard(
-                        row.get("Atendimento Terceiros")
-                    )
-                    datanorm, horanorm = formatdatetimecard(row.get("Normalização"))
+                        quantidade_html = ''
+                        if row.get('Categoria') == 'EQUIPAMENTOS':
+                            quantidade_val = row.get('Quantidade', 0)
+                            try:
+                                if pd.notna(quantidade_val) and float(quantidade_val) > 0:
+                                    quantidade_html = f'<div class="card-item"><span class="card-label">Quantidade:</span> {int(float(quantidade_val))}</div>'
+                            except (ValueError, TypeError):
+                                quantidade_html = ''
 
-                    quantidadehtml = ""
-                    if row.get("Categoria") == "EQUIPAMENTOS":
-                        quantidadeval = row.get("Quantidade", 0)
-                        try:
-                            if pd.notna(quantidadeval) and float(quantidadeval) > 0:
-                                quantidadehtml = (
-                                    f'<div class="card-item"><span class="card-label">'
-                                    f'Quantidade:</span> {int(float(quantidadeval))}</div>'
-                                )
-                        except (ValueError, TypeError):
-                            quantidadehtml = ""
-
-                    cardhtml = f"""
-                    <div class="card-container">
-                        <div class="card-title">{ug}</div>
-                        <div class="card-item"><span class="card-label">Cliente:</span> {cliente}</div>
-                        <div class="card-item"><span class="card-label">Categoria:</span> {categoria}</div>
-                        <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {tipoocorrencia}</div>
-                        <div class="card-item"><span class="card-label">Ativo:</span> {ativo}</div>
-                        <div class="card-item"><span class="card-label">Nome do ativo:</span> {nomeativo}</div>
-                        <div class="card-item"><span class="card-label">Ocorrência:</span> {ocorrencia}</div>
-                        <div class="card-item"><span class="card-label">Operador:</span> {operador}</div>
-                        {quantidadehtml}
-                        <br>
-                        <div class="card-item"><span class="card-label">Data da ocorrência:</span> {dataocor}</div>
-                        <div class="card-item"><span class="card-label">Hora da ocorrência:</span> {horaocor}</div>
-                        <div class="card-item"><span class="card-label">Data cliente avisado:</span> {dataca}</div>
-                        <div class="card-item"><span class="card-label">Hora cliente avisado:</span> {horaca}</div>
-                        <div class="card-item"><span class="card-label">Data do atendimento LOOP:</span> {dataloop}</div>
-                        <div class="card-item"><span class="card-label">Hora do atendimento LOOP:</span> {horaloop}</div>
-                        <div class="card-item"><span class="card-label">Data do atendimento de terceiros:</span> {dataterc}</div>
-                        <div class="card-item"><span class="card-label">Hora do atendimento de terceiros:</span> {horaterc}</div>
-                        <div class="card-item"><span class="card-label">Data de normalização:</span> {datanorm}</div>
-                        <div class="card-item"><span class="card-label">Hora de normalização:</span> {horanorm}</div>
-                        <br>
-                        <div class="card-item"><span class="card-label">Descrição:</span> {descricao}</div>
-                        <div class="card-item"><span class="card-label">Protocolo:</span> {protocolo}</div>
-                        <div class="card-item"><span class="card-label">OS:</span> {os}</div>
-                    </div>
-                    """
-                    st.html(cardhtml)
+                        card_html = f"""
+                        <div class="card-container">
+                            <div class="card-title">{ug}</div>
+                            <div class="card-item"><span class="card-label">Cliente:</span> {cliente}</div>
+                            <div class="card-item"><span class="card-label">Categoria:</span> {categoria}</div>
+                            <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {tipo_ocorrencia}</div>
+                            <div class="card-item"><span class="card-label">Ativo:</span> {ativo}</div>
+                            <div class="card-item"><span class="card-label">Nome do ativo:</span> {nome_ativo}</div>
+                            <div class="card-item"><span class="card-label">Ocorrência:</span> {ocorrencia}</div>
+                            <div class="card-item"><span class="card-label">Operador:</span> {operador}</div>
+                            {quantidade_html}
+                            <br>
+                            <div class="card-item"><span class="card-label">Data da ocorrência:</span> {data_ocor}</div>
+                            <div class="card-item"><span class="card-label">Hora da ocorrência:</span> {hora_ocor}</div>
+                            <div class="card-item"><span class="card-label">Data cliente avisado:</span> {data_ca}</div>
+                            <div class="card-item"><span class="card-label">Hora cliente avisado:</span> {hora_ca}</div>
+                            <div class="card-item"><span class="card-label">Data do atendimento LOOP:</span> {data_loop}</div>
+                            <div class="card-item"><span class="card-label">Hora do atendimento LOOP:</span> {hora_loop}</div>
+                            <div class="card-item"><span class="card-label">Data do atendimento de terceiros:</span> {data_terc}</div>
+                            <div class="card-item"><span class="card-label">Hora do atendimento de terceiros:</span> {hora_terc}</div>
+                            <div class="card-item"><span class="card-label">Data de normalização:</span> {data_norm}</div>
+                            <div class="card-item"><span class="card-label">Hora de normalização:</span> {hora_norm}</div>
+                            <br>
+                            <div class="card-item"><span class="card-label">Descrição:</span> {descricao}</div>
+                            <div class="card-item"><span class="card-label">Protocolo:</span> {protocolo}</div>
+                            <div class="card-item"><span class="card-label">OS:</span> {os}</div>
+                        </div>
+                        """
+                        st.html(card_html)
     else:
-        st.info(
-            "Nenhuma usina encontrada com o campo Normalização em branco para os filtros selecionados."
-        )
+        st.info("Nenhuma usina encontrada com o campo 'Normalização' em branco para os filtros selecionados.")
+else:
+    st.warning("Não foi possível carregar os dados. Verifique o arquivo local ou os filtros aplicados.")
