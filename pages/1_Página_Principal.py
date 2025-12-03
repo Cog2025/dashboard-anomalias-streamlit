@@ -211,7 +211,7 @@ h1{
 }
 
 /* A partir de meia tela pra baixo, empilhar Sel. Todos / Desmarcar */
-@media (max-width:1400px){
+@media (max-width:1100px){
   .stButton{
     display:block !important;
     width:100% !important;
@@ -222,6 +222,7 @@ h1{
     margin-bottom:4px !important;
   }
 }
+
 </style>
 """,
     unsafe_allow_html=True,
