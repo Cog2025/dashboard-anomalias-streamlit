@@ -103,18 +103,29 @@ meses_cronologicos = list(meses_traducao.values())
 st.markdown(
     """
 <style>
+/* Usar toda a largura disponível do app */
 .main .block-container{
   max-width: 100% !important;
   padding-left: 1rem !important;
   padding-right: 1rem !important;
 }
 
-/* Layout de colunas fluido */
+/* Layout: linhas horizontais de colunas flexíveis */
 [data-testid="stHorizontalBlock"]{
-  display:flex !important; flex-wrap:wrap !important; gap:12px !important;
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:12px !important;
 }
+
+/* Colunas base */
 [data-testid="column"]{
-  flex:1 1 320px !important; min-width:280px !important;
+  flex:1 1 320px !important;
+  min-width:280px !important;
+}
+
+/* Wrapper dos botões */
+.stButton{
+  width:100%;
 }
 
 /* Botões padrão */
@@ -146,7 +157,7 @@ div[data-baseweb="select"] div{
   white-space:normal !important; overflow:visible !important; text-overflow:clip !important;
 }
 
-/* KPIs e cards */
+/* KPIs e cards – cores específicas da página 4 */
 .kpi-card{
   background:#333; padding:clamp(12px, 3vw, 20px); border-radius:10px; text-align:center;
 }
@@ -176,17 +187,6 @@ h1{
   font-size:clamp(1.6rem, 5vw, 2.6rem) !important; text-align:center;
 }
 
-/* Breakpoints das colunas */
-@media (max-width:1400px){
-  [data-testid="column"]{ flex-basis:360px !important; min-width:300px !important; }
-}
-@media (max-width:1100px){
-  [data-testid="column"]{ flex-basis:320px !important; min-width:280px !important; }
-}
-@media (max-width:900px){
-  [data-testid="column"]{ flex-basis:100% !important; min-width:100% !important; }
-}
-
 /* Em telas médias, botões um pouco mais compactos */
 @media (max-width:1200px){
   .stButton button{
@@ -195,23 +195,19 @@ h1{
   }
 }
 
-/* A partir de meia tela pra baixo, empilhar Sel. Todos / Desmarcar */
+/* Em meia tela ou menor, empilhar colunas que contenham botões
+   (Sel. Todos / Desmarcar ficam um embaixo do outro) */
 @media (max-width:1100px){
-  .stButton{
-    display:block !important;
-    width:100% !important;
-  }
-  .stButton button{
-    width:100% !important;
-    margin-right:0 !important;
-    margin-bottom:4px !important;
+  [data-testid="stHorizontalBlock"] > div:has(.stButton){
+    flex-basis:100% !important;
+    min-width:100% !important;
   }
 }
-
 </style>
 """,
     unsafe_allow_html=True,
 )
+
 
 # --- 4. Carregar e Tratar os Dados ---
 
@@ -987,7 +983,7 @@ if not df_resolvidas.empty:
 
     # Cards
     st.header("Detalhes por Ocorrência (Cards)")
-    num_cols = 2
+    num_cols = 3
     rows = list(dfsorted.iterrows())
 
     def fmt_dt(dtobj):
