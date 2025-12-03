@@ -1099,7 +1099,7 @@ if not df_desligadas.empty:
     # --- DETALHES POR OCORRÊNCIA (CARDS) ---
     st.header("Detalhes por Ocorrência (Cards)")
 
-    num_cols = 4
+    num_cols = 3
     rows = list(dfsorted.iterrows())
 
     def formatdatetimecard(dtobj):
