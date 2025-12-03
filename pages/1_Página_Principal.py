@@ -199,7 +199,7 @@ h1{
 }
 
 /* Breakpoints das colunas */
-@media (max-width:1400px){
+@media (max-width:1600px){
   [data-testid="column"]{
     flex-basis:360px !important;
     min-width:300px !important;
@@ -208,7 +208,7 @@ h1{
 
 /* A partir de ~meia tela, cada coluna ocupa 100% -> empilha tudo,
    inclusive Sel. Todos / Desmarcar */
-@media (max-width:1200px){
+@media (max-width:1400px){
   [data-testid="column"]{
     flex-basis:100% !important;
     min-width:100% !important;
