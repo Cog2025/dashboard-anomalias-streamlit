@@ -210,7 +210,7 @@ h1{
 }
 
 /* Em telas bem estreitas, empilhar botões Sel. Todos / Desmarcar */
-@media (max-width:900px){
+@media (max-width:700px){
   .stButton{
     display:block !important;
     width:100% !important;
