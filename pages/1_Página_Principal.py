@@ -133,13 +133,14 @@ st.markdown(
   flex:1 1 320px !important; min-width:280px !important;
 }
 
-/* Botões: evitar quebra vertical e garantir largura mínima */
+/* Botões padrão */
 .stButton button{
   background-color:#28a745; color:#fff; border:none; border-radius:6px;
   box-shadow:0 2px 4px rgba(0,0,0,.2); transition:.2s ease;
   width:100%; min-height:42px; padding:8px 12px;
   font-size:clamp(12px, 2.3vw, 14px); font-weight:500;
   white-space:normal !important; word-break:normal !important; overflow-wrap:anywhere !important;
+  margin-right:4px !important;   /* separa Sel. Todos de Desmarcar */
 }
 
 /* Select/Multiselect: texto visível, com quebra e altura mínima + limite de altura */
@@ -189,26 +190,35 @@ h1{
   font-size:clamp(1.6rem, 5vw, 2.6rem) !important; text-align:center;
 }
 
-/* Breakpoints progressivos */
+/* Breakpoints progressivos das colunas */
 @media (max-width:1400px){
   [data-testid="column"]{ flex-basis:360px !important; min-width:300px !important; }
-  .stButton button{ min-width:110px !important; }
 }
 @media (max-width:1100px){
   [data-testid="column"]{ flex-basis:320px !important; min-width:280px !important; }
-  .stButton button{ min-width:100px !important; }
 }
 @media (max-width:900px){
   [data-testid="column"]{ flex-basis:100% !important; min-width:100% !important; }
-  .stButton button{ min-width:96px !important; }
 }
 
-/* Em telas médias/pequenas, empilhar botões Sel. Todos / Desmarcar */
-@media (max-width: 1200px){
-  /* Qualquer par de botões lado a lado vira dois blocos em coluna */
+/* Em telas médias, botões um pouco mais compactos */
+@media (max-width:1200px){
   .stButton button{
-    width: 100% !important;
-    margin-bottom: 4px !important;
+    padding:6px 8px !important;
+    font-size:12px !important;
+  }
+}
+
+/* Em telas bem estreitas, empilhar botões Sel. Todos / Desmarcar */
+@media (max-width:900px){
+  .stButton{
+    display:block !important;
+    width:100% !important;
+  }
+  .stButton button{
+    width:100% !important;
+    margin-right:0 !important;
+    margin-bottom:4px !important;
   }
 }
 
