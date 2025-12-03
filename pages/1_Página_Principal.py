@@ -123,10 +123,11 @@ st.markdown(
   padding-right: 1rem !important;
 }
 
-/* Layout: linhas horizontais de colunas flexíveis */
+/* Layout base: linhas horizontais de colunas flexíveis */
 [data-testid="stHorizontalBlock"]{
   display:flex !important;
   flex-wrap:wrap !important;
+  flex-direction:row !important;
   gap:12px !important;
 }
 
@@ -200,12 +201,13 @@ h1{
   font-size:clamp(1.6rem, 5vw, 2.6rem) !important; text-align:center;
 }
 
-/* A partir de ~meia tela (até 2800px),
-   cada coluna ocupa 100% -> empilha tudo, inclusive Sel. Todos / Desmarcar */
-@media (max-width:2500px){
-  [data-testid="column"]{
-    flex-basis:100% !important;
-    min-width:100% !important;
+/* Em telas médias/grandes abaixo de X px (ajuste X à sua meia tela),
+   empilhar colunas de cada bloco horizontal -> Sel. Todos / Desmarcar ficam um abaixo do outro */
+@media (max-width:1500px){
+  [data-testid="stHorizontalBlock"]{
+    flex-direction:column !important;
+    flex-wrap:nowrap !important;
+    align-items:stretch !important;
   }
 }
 
@@ -220,6 +222,7 @@ h1{
 """,
     unsafe_allow_html=True,
 )
+
 
 
 st.markdown(
