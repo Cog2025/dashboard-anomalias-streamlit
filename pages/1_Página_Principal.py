@@ -123,13 +123,17 @@ st.markdown(
   padding-right: 1rem !important;
 }
 
-/* Layout: permitir quebra de linha nas linhas horizontais de colunas */
+/* Layout: linhas horizontais de colunas flexíveis */
 [data-testid="stHorizontalBlock"]{
-  display:flex !important; flex-wrap:wrap !important; gap:12px !important;
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:12px !important;
 }
-/* Cada coluna passa a ser fluida e com largura mínima útil */
+
+/* Colunas base: lado a lado em tela cheia */
 [data-testid="column"]{
-  flex:1 1 320px !important; min-width:280px !important;
+  flex:1 1 320px !important;
+  min-width:280px !important;
 }
 
 /* Wrapper dos botões: largura total da coluna */
@@ -157,12 +161,10 @@ st.markdown(
   line-height: 1.2 !important;
   font-size: clamp(12px, 1.4vw, 15px) !important;
 }
-
 .stMultiSelect [data-baseweb="tag"]{
   font-size: 11px !important;
   padding: 2px 6px !important;
 }
-
 div[data-baseweb="select"]{ min-height:42px !important; }
 div[data-baseweb="select"] div{
   white-space:normal !important; overflow:visible !important; text-overflow:clip !important;
@@ -198,28 +200,14 @@ h1{
   font-size:clamp(1.6rem, 5vw, 2.6rem) !important; text-align:center;
 }
 
-/* Layout base das colunas */
-[data-testid="stHorizontalBlock"]{
-  display:flex !important;
-  flex-wrap:wrap !important;
-  gap:12px !important;
-}
-[data-testid="column"]{
-  flex:1 1 320px !important;
-  min-width:280px !important;
-}
-
-/* A partir de ~meia tela (até 1500px de largura),
-   cada coluna vira 100% -> empilha tudo, inclusive Sel. Todos / Desmarcar */
+/* A partir de ~meia tela (até 1500px),
+   cada coluna ocupa 100% -> empilha tudo, inclusive Sel. Todos / Desmarcar */
 @media (max-width:1500px){
   [data-testid="column"]{
     flex-basis:100% !important;
     min-width:100% !important;
   }
 }
-
-
-
 
 /* Em telas médias, botões um pouco mais compactos */
 @media (max-width:1200px){
@@ -232,6 +220,7 @@ h1{
 """,
     unsafe_allow_html=True,
 )
+
 
 st.markdown(
     """
