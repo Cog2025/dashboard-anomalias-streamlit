@@ -209,8 +209,8 @@ h1{
   }
 }
 
-/* Em telas bem estreitas, empilhar botões Sel. Todos / Desmarcar */
-@media (max-width:1800px){
+/* A partir de meia tela pra baixo, empilhar Sel. Todos / Desmarcar */
+@media (max-width:1400px){
   .stButton{
     display:block !important;
     width:100% !important;
