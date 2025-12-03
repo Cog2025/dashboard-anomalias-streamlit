@@ -202,6 +202,17 @@ h1{
   [data-testid="column"]{ flex-basis:100% !important; min-width:100% !important; }
   .stButton button{ min-width:96px !important; }
 }
+
+/* Em telas médias/pequenas, empilhar botões Sel. Todos / Desmarcar */
+@media (max-width: 1200px){
+  /* Qualquer par de botões lado a lado vira dois blocos em coluna */
+  .stButton button{
+    width: 100% !important;
+    margin-bottom: 4px !important;
+  }
+}
+
+
 </style>
 """,
     unsafe_allow_html=True,
@@ -631,9 +642,10 @@ if not df_todos_dados.empty:
         with st.container(border=True):
             st.write("### Dia(s):")
             with st.expander("Expandir dias"):
-                dias_cols = st.columns(7)
+                num_dias_cols = 5  # ou 4, se preferir ainda mais largo
+                dias_cols = st.columns(num_dias_cols)
                 for i, dia in enumerate(range(1, 32)):
-                    with dias_cols[i % 7]:
+                    with dias_cols[i % num_dias_cols]:
                         if dia in dias_disponiveis:
                             st.checkbox(
                                 str(dia),
