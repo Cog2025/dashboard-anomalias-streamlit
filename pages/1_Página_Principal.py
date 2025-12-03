@@ -96,83 +96,86 @@ meses_cronologicos = list(meses_traducao.values())
 # --- 3. CSS (Original) ---
 st.markdown("""
 <style>
-    /* --- 1. BOTÕES INTELIGENTES (A mágica acontece aqui) --- */
+    /* --- 1. CONFIGURAÇÃO DE GRID INTELIGENTE (RESOLVE O CARD FINO) --- */
+    .card-grid {
+        display: grid;
+        /* A MÁGICA: Cria colunas automaticamente. 
+           O card nunca ficará menor que 280px. Se a tela diminuir, ele joga o card pra baixo. */
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 15px;
+        padding: 10px 0;
+    }
+
+    /* --- 2. ESTILO DOS BOTÕES (FILTROS) --- */
     .stButton > button {
-        /* Estilo Visual (Cores e Borda) */
         background-color: #28a745;
         color: white;
         border: none;
-        border-radius: 5px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        transition: all 0.3s;
-        
-        /* Comportamento de Tamanho */
+        border-radius: 4px;
         width: 100%;
-        min-height: 40px; /* Garante altura para o dedo no celular */
+        min-height: 42px; /* Altura boa para toque */
         
-        /* --- RESPONSIVIDADE DA FONTE E TEXTO --- */
-        white-space: nowrap;        /* Proíbe o texto de quebrar linha (ficar vertical) */
-        overflow: hidden;           /* Esconde o que vazar */
-        text-overflow: ellipsis;    /* Coloca "..." se o texto for muito grande pro botão */
+        /* Fonte responsiva: Diminui se apertar, mas tem limite mínimo e máximo */
+        font-size: clamp(10px, 1.2vw, 14px) !important;
         
-        /* AQUI ESTÁ A SOLUÇÃO: Fonte Fluida */
-        /* A fonte será 3% da largura da tela, mas nunca menor que 10px e nunca maior que 16px */
-        font-size: clamp(10px, 3vw, 16px) !important;
+        /* Padding mínimo para caber texto longo como 'Desmarcar' */
+        padding: 0px 2px !important;
         
-        /* Padding reduzido para caber mais texto */
-        padding: 4px 4px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
         display: flex;
         align-items: center;
         justify-content: center;
     }
-    
-    .stButton > button:hover { 
-        background-color: #218838;
-        transform: scale(1.02); /* Efeito de clique sutil */
-    }
+    .stButton > button:hover { background-color: #218838; transform: scale(1.01); }
 
-    /* --- 2. CARDS DE DETALHES (Mantendo o vermelho bonito) --- */
+    /* --- 3. ESTILO DO CARD (LAYOUT ORIGINAL RESTAURADO) --- */
     .card-container {
         background-color: #FF4B4B;
         color: white;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        height: 100%;
-    }
-    .card-title {
-        font-size: 1.2em; font-weight: bold; color: white;
-        border-bottom: 1px solid rgba(255,255,255,0.5);
-        padding-bottom: 5px; margin-bottom: 10px;
-    }
-    .card-item { margin-bottom: 5px; font-size: 0.9em; }
-    .card-label { font-weight: bold; }
-
-    /* --- 3. KPIs (Títulos Grandes) --- */
-    .kpi-card {
-        background-color: #333333;
-        padding: 10px;
+        padding: 20px; /* Mais espaço interno */
         border-radius: 10px;
-        text-align: center;
-        margin-bottom: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
     }
-    .kpi-value { 
-        font-size: clamp(1.8rem, 5vw, 3rem); /* Fonte responsiva também no KPI */
-        font-weight: bold; 
-        color: #FF4B4B; 
+    
+    .card-title {
+        font-size: 1.4rem; /* Título maior */
+        font-weight: 800; 
+        border-bottom: 2px solid rgba(255,255,255,0.3);
+        margin-bottom: 12px; 
+        padding-bottom: 8px;
     }
-    .kpi-label { font-size: 1em; color: #FFFFFF; }
+    
+    /* Texto do corpo do card */
+    .card-item { 
+        font-size: 0.95rem; 
+        margin-bottom: 6px; 
+        line-height: 1.5; 
+        word-wrap: break-word; /* Quebra texto longo se precisar */
+    }
+    
+    .card-label { 
+        font-weight: 700; 
+        color: rgba(255,255,255,0.9); 
+        margin-right: 4px;
+    }
 
-    /* --- 4. AJUSTE PARA CELULAR (Forçar fonte pequena) --- */
-    @media (max-width: 600px) {
-        .stButton > button {
-            font-size: 11px !important; /* Trava em 11px no celular */
-            padding: 2px !important;    /* Quase sem borda interna */
-        }
-        /* Ajuste fino para os títulos das colunas não ficarem gigantes */
-        h1, h2, h3 { text-align: center; }
+    /* Linhas divisórias sutis dentro do card */
+    hr.card-divider {
+        margin: 10px 0;
+        border: 0;
+        border-top: 1px solid rgba(255,255,255,0.2);
     }
+
+    /* --- 4. KPIs --- */
+    .kpi-card { background-color: #333; padding: 15px; border-radius: 8px; text-align: center; }
+    .kpi-value { font-size: clamp(2rem, 5vw, 3rem); font-weight: bold; color: #FF4B4B; }
+    .kpi-label { font-size: 1rem; color: #FFF; }
 </style>
 """, unsafe_allow_html=True)
 
