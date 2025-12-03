@@ -207,6 +207,17 @@ h1{
     font-size:12px !important;
   }
 }
+
+/* Em meia tela ou menor, empilhar colunas que contenham botões
+   (Sel. Todos / Desmarcar ficam um embaixo do outro) */
+@media (max-width:1500px){
+  /* Cada coluna que tiver stButton passa a ocupar 100% da linha */
+  [data-testid="stHorizontalBlock"] > div:has(.stButton){
+    flex-basis:100% !important;
+    min-width:100% !important;
+  }
+}
+
 </style>
 """,
     unsafe_allow_html=True,
