@@ -96,66 +96,48 @@ meses_cronologicos = list(meses_traducao.values())
 # --- 3. CSS (Original) ---
 st.markdown("""
 <style>
+    /* Estilo Base dos Botões */
     .stButton > button {
         background-color: #28a745;
         color: white;
         font-weight: bold;
         border-radius: 5px;
-        padding: 10px 20px;
+        padding: 0.5rem 0.5rem; /* Padding menor para economizar espaço */
         width: 100%;
         border: none;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         transition: background-color 0.3s;
+        white-space: nowrap; /* IMPEDE que o texto fique vertical */
+        overflow: hidden;
+        text-overflow: ellipsis; /* Adiciona ... se o texto for muito longo */
+        font-size: 0.9rem; /* Fonte levemente menor */
     }
     .stButton > button:hover { background-color: #218838; }
+    
+    /* Cards KPI */
     .kpi-card {
         background-color: #333333;
-        padding: 20px;
+        padding: 15px;
         border-radius: 10px;
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
     }
-    .kpi-value { font-size: 3em; font-weight: bold; color: #FF4B4B; }
-    .kpi-label { font-size: 1.2em; color: #FFFFFF; }
-    .stMultiSelect { max-height: 200px; overflow-y: auto; }
-    .column-header { font-weight: bold; font-size: 1.2em; }
+    .kpi-value { font-size: 2.5em; font-weight: bold; color: #FF4B4B; } /* Fonte ajustável */
+    .kpi-label { font-size: 1.0em; color: #FFFFFF; }
     
-    .card-container {
-        background-color: #FF4B4B;
-        color: white;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        height: 100%;
+    /* Ajustes para telas menores (Media Queries) */
+    @media (max-width: 768px) {
+        .kpi-value { font-size: 2em; }
+        .stButton > button { font-size: 0.8rem; padding: 0.3rem; }
     }
-    .card-title {
-        font-size: 1.5em; font-weight: bold; color: white;
-        border-bottom: 1px solid rgba(255,255,255,0.5);
-        padding-bottom: 5px; margin-bottom: 10px;
-    }
-    .card-item { margin-bottom: 5px; font-size: 1em; }
-    .card-label { font-weight: bold; }
     
+    /* Melhoria na tabela */
     .streamlit-dataframe table td {
         word-break: break-word;
         white-space: normal;
     }
-
-    .top-block {
-    border: 2px solid rgba(255,255,255,0.15);
-    border-radius: 12px;
-    padding: 16px 16px 8px 16px;
-    margin-bottom: 28px;
-    background: #111418;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.25);
-    }
-    .top-block h1 { margin-top: 0; }
-    @media (max-width: 768px) {
-    .top-block { padding: 12px; }
-    }
-    </style>
-    """, unsafe_allow_html=True)
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <style>
@@ -446,31 +428,38 @@ if not df_todos_dados.empty:
                 st.session_state.filtros_dias = [d for d in dias_disponiveis if st.session_state.get(f'cb_dia_{d}', False)]
 
     st.subheader("Filtros Adicionais")
-    col_cliente, col_ug, col_tipo, col_ativo, col_ocorrencia = st.columns(5)
+    
+    # --- MUDANÇA: Layout em Grid (3 em cima, 2 embaixo) para não esmagar ---
+    # Linha 1: Cliente, UG, Tipo
+    row1_col1, row1_col2, row1_col3 = st.columns(3)
+    
+    # Linha 2: Ativo, Ocorrência (centralizados ou esticados)
+    row2_col1, row2_col2 = st.columns(2)
 
-    with col_cliente:
+    # --- CLIENTE (Linha 1, Coluna 1) ---
+    with row1_col1:
         with st.container(border=True):
-            st.write("Cliente:")
+            st.write("**Cliente:**")
             cli_series = df_todos_dados['Cliente'].astype(str).map(_collapse_spaces)
             cli_opts = sorted([v for v in cli_series.unique().tolist() if v and v != "-" and v != "0"])
 
-            col_b = st.columns(2)
-            with col_b[0]:
-                if st.button('Sel. Todos', key='sel_cli', use_container_width=True):
-                    st.session_state.filtros_clientes = cli_opts; st.rerun()
-            with col_b[1]:
-                if st.button('Desmarcar', key='des_cli', use_container_width=True):
-                    st.session_state.filtros_clientes = []; st.rerun()
+            # Botões lado a lado com texto curto
+            b1, b2 = st.columns(2)
+            if b1.button('Todos', key='sel_cli', use_container_width=True): # Texto encurtado
+                st.session_state.filtros_clientes = cli_opts; st.rerun()
+            if b2.button('Limpar', key='des_cli', use_container_width=True): # Texto encurtado
+                st.session_state.filtros_clientes = []; st.rerun()
 
             st.session_state.filtros_clientes = st.multiselect(
-                ' ', options=cli_opts,
+                'Filtro Cliente', options=cli_opts, # Label visível apenas p/ acessibilidade (hidden no CSS se quiser)
                 default=[x for x in st.session_state.filtros_clientes if x in cli_opts],
-                label_visibility='hidden'
+                label_visibility='collapsed'
             )
 
-    with col_ug:
+    # --- UG (Linha 1, Coluna 2) ---
+    with row1_col2:
         with st.container(border=True):
-            st.write("UG:")
+            st.write("**UG:**")
             if 'Cliente' in df_todos_dados.columns and st.session_state.filtros_clientes:
                 df_temp = df_todos_dados[df_todos_dados['Cliente'].isin(st.session_state.filtros_clientes)]
             else:
@@ -478,80 +467,76 @@ if not df_todos_dados.empty:
 
             ugs_series = df_temp['UG'].astype(str).map(_collapse_spaces) if 'UG' in df_temp.columns else pd.Series([], dtype=str)
             ugs_disponiveis = sorted([u for u in ugs_series.unique().tolist() if u and u != "-"])
+            # Limpeza de seleção inválida
             st.session_state.filtros_ugs = [ug for ug in st.session_state.filtros_ugs if ug in ugs_disponiveis]
 
-            col_b = st.columns(2)
-            with col_b[0]:
-                if st.button('Sel. Todos', key='sel_ug', use_container_width=True):
-                    st.session_state.filtros_ugs = ugs_disponiveis; st.rerun()
-            with col_b[1]:
-                if st.button('Desmarcar', key='des_ug', use_container_width=True):
-                    st.session_state.filtros_ugs = []; st.rerun()
+            b1, b2 = st.columns(2)
+            if b1.button('Todos', key='sel_ug', use_container_width=True):
+                st.session_state.filtros_ugs = ugs_disponiveis; st.rerun()
+            if b2.button('Limpar', key='des_ug', use_container_width=True):
+                st.session_state.filtros_ugs = []; st.rerun()
 
             st.session_state.filtros_ugs = st.multiselect(
-                ' ', options=ugs_disponiveis,
+                'Filtro UG', options=ugs_disponiveis,
                 default=st.session_state.filtros_ugs,
-                label_visibility='hidden'
+                label_visibility='collapsed'
             )
 
-    with col_tipo:
+    # --- TIPO DE OCORRÊNCIA (Linha 1, Coluna 3) ---
+    with row1_col3:
         with st.container(border=True):
-            st.write("Tipo de Ocorrência:")
+            st.write("**Tipo:**") # Texto encurtado
             tip_opts = sorted([x for x in options_from(df_todos_dados['Tipo de ocorrência']) if x != "-"])
 
-            col_b = st.columns(2)
-            with col_b[0]:
-                if st.button('Sel. Todos', key='sel_tipo', use_container_width=True):
-                    st.session_state.filtros_tipos = tip_opts; st.rerun()
-            with col_b[1]:
-                if st.button('Desmarcar', key='des_tipo', use_container_width=True):
-                    st.session_state.filtros_tipos = []; st.rerun()
+            b1, b2 = st.columns(2)
+            if b1.button('Todos', key='sel_tipo', use_container_width=True):
+                st.session_state.filtros_tipos = tip_opts; st.rerun()
+            if b2.button('Limpar', key='des_tipo', use_container_width=True):
+                st.session_state.filtros_tipos = []; st.rerun()
 
             st.session_state.filtros_tipos = [x for x in st.session_state.filtros_tipos if x in tip_opts]
             st.session_state.filtros_tipos = st.multiselect(
-                ' ', options=tip_opts,
+                'Filtro Tipo', options=tip_opts,
                 default=st.session_state.filtros_tipos,
-                label_visibility='hidden'
+                label_visibility='collapsed'
             )
 
-    with col_ativo:
+    # --- ATIVO (Linha 2, Coluna 1) ---
+    with row2_col1:
         with st.container(border=True):
-            st.write("Ativo:")
+            st.write("**Ativo:**")
             atv_opts = sorted([x for x in options_from(df_todos_dados['Ativo']) if x != "-"])
 
-            col_b = st.columns(2)
-            with col_b[0]:
-                if st.button('Sel. Todos', key='sel_ativo', use_container_width=True):
-                    st.session_state.filtros_ativos = atv_opts; st.rerun()
-            with col_b[1]:
-                if st.button('Desmarcar', key='des_ativo', use_container_width=True):
-                    st.session_state.filtros_ativos = []; st.rerun()
+            b1, b2 = st.columns(2)
+            if b1.button('Todos', key='sel_ativo', use_container_width=True):
+                st.session_state.filtros_ativos = atv_opts; st.rerun()
+            if b2.button('Limpar', key='des_ativo', use_container_width=True):
+                st.session_state.filtros_ativos = []; st.rerun()
 
             st.session_state.filtros_ativos = [x for x in st.session_state.filtros_ativos if x in atv_opts]
             st.session_state.filtros_ativos = st.multiselect(
-                ' ', options=atv_opts,
+                'Filtro Ativo', options=atv_opts,
                 default=st.session_state.filtros_ativos,
-                label_visibility='hidden'
+                label_visibility='collapsed'
             )
 
-    with col_ocorrencia:
+    # --- OCORRÊNCIA (Linha 2, Coluna 2) ---
+    with row2_col2:
         with st.container(border=True):
-            st.write("Ocorrência:")
+            st.write("**Ocorrência:**")
             ocr_opts = sorted([x for x in options_from(df_todos_dados['Ocorrência']) if x != "-"])
 
-            col_b = st.columns(2)
-            with col_b[0]:
-                if st.button('Sel. Todos', key='sel_ocorr', use_container_width=True):
-                    st.session_state.filtros_ocorrencias = ocr_opts; st.rerun()
-            with col_b[1]:
-                if st.button('Desmarcar', key='des_ocorr', use_container_width=True):
-                    st.session_state.filtros_ocorrencias = []; st.rerun()
+            b1, b2 = st.columns(2)
+            if b1.button('Todos', key='sel_ocorr', use_container_width=True):
+                st.session_state.filtros_ocorrencias = ocr_opts; st.rerun()
+            if b2.button('Limpar', key='des_ocorr', use_container_width=True):
+                st.session_state.filtros_ocorrencias = []; st.rerun()
 
             st.session_state.filtros_ocorrencias = [x for x in st.session_state.filtros_ocorrencias if x in ocr_opts]
             st.session_state.filtros_ocorrencias = st.multiselect(
-                ' ', options=ocr_opts,
+                'Filtro Ocorrência', options=ocr_opts,
                 default=st.session_state.filtros_ocorrencias,
-                label_visibility='hidden'
+                label_visibility='collapsed'
             )
 
     # --- Aplicação dos Filtros ---
