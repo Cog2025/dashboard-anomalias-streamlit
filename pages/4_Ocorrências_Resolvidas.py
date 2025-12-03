@@ -135,6 +135,7 @@ st.markdown(
   overflow-y: auto !important;
   white-space: normal !important;
   line-height: 1.2 !important;
+  font-size: clamp(12px, 1.4vw, 15px) !important;
 }
 .stMultiSelect [data-baseweb="tag"]{
   font-size: 11px !important;
