@@ -96,57 +96,83 @@ meses_cronologicos = list(meses_traducao.values())
 # --- 3. CSS (Original) ---
 st.markdown("""
 <style>
-    /* --- 1. BOTÕES (Ajuste para Meia Tela) --- */
+    /* --- 1. BOTÕES INTELIGENTES (A mágica acontece aqui) --- */
     .stButton > button {
+        /* Estilo Visual (Cores e Borda) */
         background-color: #28a745;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.3s;
+        
+        /* Comportamento de Tamanho */
         width: 100%;
-        min-height: 38px;
+        min-height: 40px; /* Garante altura para o dedo no celular */
         
-        /* Fonte ainda mais dinâmica: diminui agressivamente em telas médias */
-        font-size: clamp(9px, 2.2vw, 15px) !important;
-        padding: 0px 2px !important; /* Quase sem padding lateral */
+        /* --- RESPONSIVIDADE DA FONTE E TEXTO --- */
+        white-space: nowrap;        /* Proíbe o texto de quebrar linha (ficar vertical) */
+        overflow: hidden;           /* Esconde o que vazar */
+        text-overflow: ellipsis;    /* Coloca "..." se o texto for muito grande pro botão */
         
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        /* AQUI ESTÁ A SOLUÇÃO: Fonte Fluida */
+        /* A fonte será 3% da largura da tela, mas nunca menor que 10px e nunca maior que 16px */
+        font-size: clamp(10px, 3vw, 16px) !important;
+        
+        /* Padding reduzido para caber mais texto */
+        padding: 4px 4px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
-    .stButton > button:hover { background-color: #218838; transform: scale(1.01); }
-
-    /* --- 2. GRID INTELIGENTE PARA OS CARDS (A Solução Mágica) --- */
-    /* Isso substitui as colunas do Streamlit. 
-       Se a tela for grande, cabem 4. Se for média, cabem 2 ou 3. Se for pequena, 1. */
-    .card-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-        gap: 15px;
-        padding: 10px 0;
+    
+    .stButton > button:hover { 
+        background-color: #218838;
+        transform: scale(1.02); /* Efeito de clique sutil */
     }
 
-    /* --- 3. ESTILO DO CARD --- */
+    /* --- 2. CARDS DE DETALHES (Mantendo o vermelho bonito) --- */
     .card-container {
         background-color: #FF4B4B;
         color: white;
         padding: 15px;
         border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        height: 100%; /* Garante que todos tenham mesma altura na linha */
-        display: flex;
-        flex-direction: column;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        height: 100%;
     }
     .card-title {
-        font-size: 1.1rem; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.4);
-        margin-bottom: 8px; padding-bottom: 4px;
+        font-size: 1.2em; font-weight: bold; color: white;
+        border-bottom: 1px solid rgba(255,255,255,0.5);
+        padding-bottom: 5px; margin-bottom: 10px;
     }
-    .card-item { font-size: 0.85rem; margin-bottom: 3px; line-height: 1.4; }
-    .card-label { font-weight: 700; opacity: 0.9; }
+    .card-item { margin-bottom: 5px; font-size: 0.9em; }
+    .card-label { font-weight: bold; }
 
-    /* --- 4. KPIs --- */
-    .kpi-card { background-color: #333; padding: 15px; border-radius: 8px; text-align: center; }
-    .kpi-value { font-size: clamp(1.5rem, 4vw, 2.5rem); font-weight: bold; color: #FF4B4B; }
-    .kpi-label { font-size: 0.9rem; color: #FFF; }
+    /* --- 3. KPIs (Títulos Grandes) --- */
+    .kpi-card {
+        background-color: #333333;
+        padding: 10px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    .kpi-value { 
+        font-size: clamp(1.8rem, 5vw, 3rem); /* Fonte responsiva também no KPI */
+        font-weight: bold; 
+        color: #FF4B4B; 
+    }
+    .kpi-label { font-size: 1em; color: #FFFFFF; }
+
+    /* --- 4. AJUSTE PARA CELULAR (Forçar fonte pequena) --- */
+    @media (max-width: 600px) {
+        .stButton > button {
+            font-size: 11px !important; /* Trava em 11px no celular */
+            padding: 2px !important;    /* Quase sem borda interna */
+        }
+        /* Ajuste fino para os títulos das colunas não ficarem gigantes */
+        h1, h2, h3 { text-align: center; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -677,72 +703,77 @@ if not df_todos_dados.empty:
         # --- DETALHES POR OCORRÊNCIA (CARDS) ---
         st.header("Detalhes por Ocorrência (Cards)")
         
-        # Helper para formatar data
+        num_cols = 4
+        rows = list(df_sorted.iterrows())
+        
         def format_datetime_card(dt_obj):
             if pd.notna(dt_obj):
                 return dt_obj.strftime('%d/%m/%Y'), dt_obj.strftime('%H:%M')
             return '', ''
 
-        # Construção do HTML Gigante
-        html_cards = ""
-        
-        # Itera sobre as linhas do dataframe
-        for index, row in df_sorted.iterrows():
-            # Extração segura dos dados
-            cliente   = html.escape(str(row.get("Cliente", "")))
-            categoria = html.escape(str(row.get("Categoria", "")))
-            ug        = html.escape(str(row.get("UG", "N/A")))
-            tipo      = html.escape(str(row.get("Tipo de ocorrência", "")))
-            ativo     = html.escape(str(row.get("Ativo", "")))
-            nome_ativo= html.escape(str(row.get("Nome Ativo", "")))
-            ocorr     = html.escape(str(row.get("Ocorrência", "")))
-            operador  = html.escape(str(row.get("Operador", "")))
-            descricao = html.escape(str(row.get("Descrição", ""))).replace('\n', '<br>')
-            protocolo = html.escape(str(row.get("Protocolo", "")))
-            os_val    = html.escape(str(row.get("OS", "")))
+        for i in range(0, len(rows), num_cols):
+            cols = st.columns(num_cols)
+            for j in range(num_cols):
+                if i + j < len(rows):
+                    index, row = rows[i + j]
+                    with cols[j]:
+                        cliente   = html.escape(str(row.get("Cliente", "")))
+                        categoria = html.escape(str(row.get("Categoria", "")))
+                        ug = html.escape(str(row.get("UG", "N/A")))
+                        tipo_ocorrencia = html.escape(str(row.get("Tipo de ocorrência", "")))
+                        ativo = html.escape(str(row.get("Ativo", "")))
+                        nome_ativo = html.escape(str(row.get("Nome Ativo", "")))
+                        ocorrencia = html.escape(str(row.get("Ocorrência", "")))
+                        operador = html.escape(str(row.get("Operador", "")))
+                        descricao = html.escape(str(row.get("Descrição", ""))).replace('\n', '<br>')
+                        protocolo = html.escape(str(row.get("Protocolo", "")))
+                        os = html.escape(str(row.get("OS", "")))
 
-            data_ocor, hora_ocor = format_datetime_card(row.get('Desligamento'))
-            data_ca, hora_ca     = format_datetime_card(row.get('Cliente Avisado'))
-            data_loop, hora_loop = format_datetime_card(row.get('Atendimento Loop'))
-            data_terc, hora_terc = format_datetime_card(row.get('Atendimento Terceiros'))
-            data_norm, hora_norm = format_datetime_card(row.get('Normalização'))
+                        data_ocor, hora_ocor = format_datetime_card(row.get('Desligamento'))
+                        data_ca, hora_ca = format_datetime_card(row.get('Cliente Avisado'))
+                        data_loop, hora_loop = format_datetime_card(row.get('Atendimento Loop'))
+                        data_terc, hora_terc = format_datetime_card(row.get('Atendimento Terceiros'))
+                        data_norm, hora_norm = format_datetime_card(row.get('Normalização'))
 
-            # Lógica de Quantidade (só exibe se existir)
-            quantidade_html = ''
-            if row.get('Categoria') == 'EQUIPAMENTOS':
-                q_val = row.get('Quantidade', 0)
-                try:
-                    if pd.notna(q_val) and float(q_val) > 0:
-                        quantidade_html = f'<div class="card-item"><span class="card-label">Qtd:</span> {int(float(q_val))}</div>'
-                except: pass
+                        quantidade_html = ''
+                        if row.get('Categoria') == 'EQUIPAMENTOS':
+                            quantidade_val = row.get('Quantidade', 0)
+                            try:
+                                if pd.notna(quantidade_val) and float(quantidade_val) > 0:
+                                    quantidade_html = f'<div class="card-item"><span class="card-label">Quantidade:</span> {int(float(quantidade_val))}</div>'
+                            except (ValueError, TypeError):
+                                quantidade_html = ''
 
-            # Monta o card individual
-            html_cards += f"""
-            <div class="card-container">
-                <div class="card-title">{ug}</div>
-                <div class="card-item"><span class="card-label">Cli:</span> {cliente} | <span class="card-label">Cat:</span> {categoria}</div>
-                <div class="card-item"><span class="card-label">Tipo:</span> {tipo}</div>
-                <div class="card-item"><span class="card-label">Ativo:</span> {ativo}</div>
-                <div class="card-item"><span class="card-label">Item:</span> {nome_ativo}</div>
-                <div class="card-item"><span class="card-label">Ocorr:</span> {ocorr}</div>
-                <div class="card-item"><span class="card-label">Op:</span> {operador}</div>
-                {quantidade_html}
-                <hr style="margin: 5px 0; border-color: rgba(255,255,255,0.2);">
-                <div class="card-item"><span class="card-label">Ocorrência:</span> {data_ocor} {hora_ocor}</div>
-                <div class="card-item"><span class="card-label">Cli. Avisado:</span> {data_ca} {hora_ca}</div>
-                <div class="card-item"><span class="card-label">Loop:</span> {data_loop} {hora_loop}</div>
-                <div class="card-item"><span class="card-label">Terceiros:</span> {data_terc} {hora_terc}</div>
-                <div class="card-item"><span class="card-label">Normalização:</span> {data_norm} {hora_norm}</div>
-                <hr style="margin: 5px 0; border-color: rgba(255,255,255,0.2);">
-                <div class="card-item"><span class="card-label">Desc:</span> {descricao}</div>
-                <div class="card-item"><span class="card-label">Prot:</span> {protocolo} | <span class="card-label">OS:</span> {os_val}</div>
-            </div>
-            """
-
-        # Renderiza tudo dentro do GRID container
-        if html_cards:
-            st.markdown(f'<div class="card-grid">{html_cards}</div>', unsafe_allow_html=True)
-        else:
-            st.info("Nenhuma usina encontrada com os filtros selecionados.")
+                        card_html = f"""
+                        <div class="card-container">
+                            <div class="card-title">{ug}</div>
+                            <div class="card-item"><span class="card-label">Cliente:</span> {cliente}</div>
+                            <div class="card-item"><span class="card-label">Categoria:</span> {categoria}</div>
+                            <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {tipo_ocorrencia}</div>
+                            <div class="card-item"><span class="card-label">Ativo:</span> {ativo}</div>
+                            <div class="card-item"><span class="card-label">Nome do ativo:</span> {nome_ativo}</div>
+                            <div class="card-item"><span class="card-label">Ocorrência:</span> {ocorrencia}</div>
+                            <div class="card-item"><span class="card-label">Operador:</span> {operador}</div>
+                            {quantidade_html}
+                            <br>
+                            <div class="card-item"><span class="card-label">Data da ocorrência:</span> {data_ocor}</div>
+                            <div class="card-item"><span class="card-label">Hora da ocorrência:</span> {hora_ocor}</div>
+                            <div class="card-item"><span class="card-label">Data cliente avisado:</span> {data_ca}</div>
+                            <div class="card-item"><span class="card-label">Hora cliente avisado:</span> {hora_ca}</div>
+                            <div class="card-item"><span class="card-label">Data do atendimento LOOP:</span> {data_loop}</div>
+                            <div class="card-item"><span class="card-label">Hora do atendimento LOOP:</span> {hora_loop}</div>
+                            <div class="card-item"><span class="card-label">Data do atendimento de terceiros:</span> {data_terc}</div>
+                            <div class="card-item"><span class="card-label">Hora do atendimento de terceiros:</span> {hora_terc}</div>
+                            <div class="card-item"><span class="card-label">Data de normalização:</span> {data_norm}</div>
+                            <div class="card-item"><span class="card-label">Hora de normalização:</span> {hora_norm}</div>
+                            <br>
+                            <div class="card-item"><span class="card-label">Descrição:</span> {descricao}</div>
+                            <div class="card-item"><span class="card-label">Protocolo:</span> {protocolo}</div>
+                            <div class="card-item"><span class="card-label">OS:</span> {os}</div>
+                        </div>
+                        """
+                        st.html(card_html)
+    else:
+        st.info("Nenhuma usina encontrada com o campo 'Normalização' em branco para os filtros selecionados.")
 else:
     st.warning("Não foi possível carregar os dados. Verifique o arquivo local ou os filtros aplicados.")
