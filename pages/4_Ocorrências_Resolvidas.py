@@ -877,36 +877,61 @@ m_dia = (
     else (s_dia.isin(dias_selecionados) | s_dia.isna() | (s_dia == 0))
 )
 
+# Máscara por categoria (igual antes)
 m_cat = df["Categoria"].isin(st.session_state.filtros_categorias)
 if st.session_state.get("categoria_top") in ("DESLIGAMENTOS", "EQUIPAMENTOS"):
     m_cat = m_cat & (df["Categoria"] == st.session_state["categoria_top"])
 
-m_cli = matches_any_canon(df["Cliente"], st.session_state.filtros_clientes)
-m_ug = df["UG"].astype(str).map(_collapse_spaces).isin(
-    set(st.session_state.filtros_ugs)
-)
-m_tip = (
-    matches_any_canon(df["Tipo de ocorrência"], st.session_state.filtros_tipos)
-    if "Tipo de ocorrência" in df.columns
-    else True
-)
-m_ocr = (
-    matches_any_canon(df["Ocorrência"], st.session_state.filtros_ocorrencias)
-    if "Ocorrência" in df.columns
-    else True
-)
-m_atv = (
-    matches_any_canon(df["Ativo"], st.session_state.filtros_ativos)
-    if "Ativo" in df.columns
-    else True
-)
+# Cliente: se lista vazia, nenhuma linha passa
+if st.session_state.filtros_clientes:
+    m_cli = matches_any_canon(df["Cliente"], st.session_state.filtros_clientes)
+else:
+    m_cli = pd.Series(False, index=df.index)
 
+# UG
+if st.session_state.filtros_ugs:
+    m_ug = df["UG"].astype(str).map(_collapse_spaces).isin(
+        set(st.session_state.filtros_ugs)
+    )
+else:
+    m_ug = pd.Series(False, index=df.index)
+
+# Tipo de ocorrência
+if "Tipo de ocorrência" in df.columns and st.session_state.filtros_tipos:
+    m_tip = matches_any_canon(
+        df["Tipo de ocorrência"], st.session_state.filtros_tipos
+    )
+elif "Tipo de ocorrência" in df.columns:
+    m_tip = pd.Series(False, index=df.index)
+else:
+    m_tip = pd.Series(True, index=df.index)
+
+# Ocorrência
+if "Ocorrência" in df.columns and st.session_state.filtros_ocorrencias:
+    m_ocr = matches_any_canon(
+        df["Ocorrência"], st.session_state.filtros_ocorrencias
+    )
+elif "Ocorrência" in df.columns:
+    m_ocr = pd.Series(False, index=df.index)
+else:
+    m_ocr = pd.Series(True, index=df.index)
+
+# Ativo
+if "Ativo" in df.columns and st.session_state.filtros_ativos:
+    m_atv = matches_any_canon(df["Ativo"], st.session_state.filtros_ativos)
+elif "Ativo" in df.columns:
+    m_atv = pd.Series(False, index=df.index)
+else:
+    m_atv = pd.Series(True, index=df.index)
+
+# Combina tudo
 m_final = (
     m_cli & m_tip & m_ocr & m_atv & m_ug & m_ano & m_mes & m_dia & m_cat
 )
 df_filtrado = df[m_final].copy()
 
 df_resolvidas = df_filtrado[~df_filtrado["Normalização"].isna()].copy()
+
 
 if st.session_state.ui_phase == "loading":
     st.session_state.ui_phase = "ready"
