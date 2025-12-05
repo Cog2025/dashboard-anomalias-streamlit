@@ -10,6 +10,7 @@ import re
 from collections import Counter, defaultdict
 import utils  # [MODIFICADO]
 
+
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
 
@@ -85,7 +86,6 @@ def matches_any_canon(series: pd.Series, selected: list[str]) -> pd.Series:
         return pd.Series([True] * len(series), index=series.index)
     sel_c = {canon(s) for s in selected if s and s != "-"}
     return series.astype(str).map(canon).isin(sel_c)
-
 
 
 meses_traducao = {
@@ -213,10 +213,7 @@ h1{
     unsafe_allow_html=True,
 )
 
-
 # --- 4. Carregar e Tratar os Dados ---
-
-
 @st.cache_data(ttl=600)
 def carregar_dados_google_sheets(cache_buster: int = 0):
     try:
@@ -449,7 +446,6 @@ def marcar_loading(prefixo_key, itens, filtro_key, marcar_todos, validos=None):
     start_loading()
     _marcar(prefixo_key, itens, filtro_key, marcar_todos, validos)
 
-
 # --- Filtros por período ---
 if not df.empty:
     if "categoria_top" not in st.session_state:
@@ -507,7 +503,6 @@ if not df.empty:
                     if st.session_state.get(f"cb_ano_{a}", False)
                 ]
 
-
     # Mês(es)
     with col_mes:
         with st.container(border=True):
@@ -543,7 +538,6 @@ if not df.empty:
                     for m in meses_disponiveis
                     if st.session_state.get(f"cb_mes_{m}", False)
                 ]
-
 
     # Dia(s)
     anossel = [
@@ -621,11 +615,22 @@ if not df.empty:
                     if st.session_state.get(f"cb_dia_{d}", False)
                 ]
 
-
 # --- Filtros Adicionais (sobre resolvidas) ---
 st.subheader("Filtros Adicionais")
 
 df_ref = df[~df["Normalização"].isna()].copy()
+
+# Inicializa estados de UI (usados pelos widgets) a partir dos filtros aplicados
+if "ui_filtros_clientes" not in st.session_state:
+    st.session_state.ui_filtros_clientes = st.session_state.filtros_clientes.copy()
+if "ui_filtros_ugs" not in st.session_state:
+    st.session_state.ui_filtros_ugs = st.session_state.filtros_ugs.copy()
+if "ui_filtros_tipos" not in st.session_state:
+    st.session_state.ui_filtros_tipos = st.session_state.filtros_tipos.copy()
+if "ui_filtros_ativos" not in st.session_state:
+    st.session_state.ui_filtros_ativos = st.session_state.filtros_ativos.copy()
+if "ui_filtros_ocorrencias" not in st.session_state:
+    st.session_state.ui_filtros_ocorrencias = st.session_state.filtros_ocorrencias.copy()
 
 row1_c1, row1_c2, row1_c3 = st.columns(3)
 row2_c1, row2_c2 = st.columns(2)
@@ -646,20 +651,23 @@ with col_cliente:
             [v for v in cli_series.unique().tolist() if v and v not in ("-", "0")]
         )
 
+        # Garante que a UI só contenha clientes válidos
+        st.session_state.ui_filtros_clientes = [
+            x for x in st.session_state.ui_filtros_clientes if x in cli_opts
+        ]
+
         btn_cli1, btn_cli2 = st.columns(2)
         with btn_cli1:
             if st.button("Sel. Todos", key="cli_sel_all_res", use_container_width=True):
-                st.session_state.filtros_clientes = cli_opts
-                st.rerun()
+                st.session_state.ui_filtros_clientes = cli_opts[:]
         with btn_cli2:
             if st.button("Desmarcar", key="cli_clear_res", use_container_width=True):
-                st.session_state.filtros_clientes = []
-                st.rerun()
+                st.session_state.ui_filtros_clientes = []
 
-        st.session_state.filtros_clientes = st.multiselect(
+        st.session_state.ui_filtros_clientes = st.multiselect(
             "",
             options=cli_opts,
-            default=[x for x in st.session_state.filtros_clientes if x in cli_opts],
+            default=st.session_state.ui_filtros_clientes,
             label_visibility="hidden",
         )
 
@@ -668,10 +676,10 @@ with col_ug:
     with st.container(border=True):
         st.write("UG")
 
-        # Cascata: se há clientes selecionados, restringe df_ref às linhas desses clientes
-        if "Cliente" in df_ref.columns and st.session_state.filtros_clientes:
+        # Cascata: usa os clientes da UI para restringir UGs
+        if "Cliente" in df_ref.columns and st.session_state.ui_filtros_clientes:
             df_temp = df_ref[
-                df_ref["Cliente"].isin(st.session_state.filtros_clientes)
+                df_ref["Cliente"].isin(st.session_state.ui_filtros_clientes)
             ]
         else:
             df_temp = df_ref
@@ -685,25 +693,22 @@ with col_ug:
             [u for u in ugs_series.unique().tolist() if u and u != "-"]
         )
 
-        # Mantém apenas UGs válidas no estado
-        st.session_state.filtros_ugs = [
-            ug for ug in st.session_state.filtros_ugs if ug in ugs_disponiveis
+        st.session_state.ui_filtros_ugs = [
+            ug for ug in st.session_state.ui_filtros_ugs if ug in ugs_disponiveis
         ]
 
         btn_ug1, btn_ug2 = st.columns(2)
         with btn_ug1:
             if st.button("Sel. Todos", key="ug_sel_all_res", use_container_width=True):
-                st.session_state.filtros_ugs = ugs_disponiveis
-                st.rerun()
+                st.session_state.ui_filtros_ugs = ugs_disponiveis[:]
         with btn_ug2:
             if st.button("Desmarcar", key="ug_clear_res", use_container_width=True):
-                st.session_state.filtros_ugs = []
-                st.rerun()
+                st.session_state.ui_filtros_ugs = []
 
-        st.session_state.filtros_ugs = st.multiselect(
+        st.session_state.ui_filtros_ugs = st.multiselect(
             "",
             options=ugs_disponiveis,
-            default=st.session_state.filtros_ugs,
+            default=st.session_state.ui_filtros_ugs,
             label_visibility="hidden",
         )
 
@@ -717,23 +722,22 @@ with col_tipo:
             else []
         )
 
+        st.session_state.ui_filtros_tipos = [
+            x for x in st.session_state.ui_filtros_tipos if x in tip_opts
+        ]
+
         btn_tipo1, btn_tipo2 = st.columns(2)
         with btn_tipo1:
             if st.button("Sel. Todos", key="tipo_sel_all_res", use_container_width=True):
-                st.session_state.filtros_tipos = tip_opts
-                st.rerun()
+                st.session_state.ui_filtros_tipos = tip_opts[:]
         with btn_tipo2:
             if st.button("Desmarcar", key="tipo_clear_res", use_container_width=True):
-                st.session_state.filtros_tipos = []
-                st.rerun()
+                st.session_state.ui_filtros_tipos = []
 
-        st.session_state.filtros_tipos = [
-            x for x in st.session_state.filtros_tipos if x in tip_opts
-        ]
-        st.session_state.filtros_tipos = st.multiselect(
+        st.session_state.ui_filtros_tipos = st.multiselect(
             "",
             options=tip_opts,
-            default=st.session_state.filtros_tipos,
+            default=st.session_state.ui_filtros_tipos,
             label_visibility="hidden",
         )
 
@@ -747,23 +751,22 @@ with col_ativo:
             else []
         )
 
+        st.session_state.ui_filtros_ativos = [
+            x for x in st.session_state.ui_filtros_ativos if x in atv_opts
+        ]
+
         btn_atv1, btn_atv2 = st.columns(2)
         with btn_atv1:
             if st.button("Sel. Todos", key="ativo_sel_all_res", use_container_width=True):
-                st.session_state.filtros_ativos = atv_opts
-                st.rerun()
+                st.session_state.ui_filtros_ativos = atv_opts[:]
         with btn_atv2:
             if st.button("Desmarcar", key="ativo_clear_res", use_container_width=True):
-                st.session_state.filtros_ativos = []
-                st.rerun()
+                st.session_state.ui_filtros_ativos = []
 
-        st.session_state.filtros_ativos = [
-            x for x in st.session_state.filtros_ativos if x in atv_opts
-        ]
-        st.session_state.filtros_ativos = st.multiselect(
+        st.session_state.ui_filtros_ativos = st.multiselect(
             "",
             options=atv_opts,
-            default=st.session_state.filtros_ativos,
+            default=st.session_state.ui_filtros_ativos,
             label_visibility="hidden",
         )
 
@@ -777,27 +780,35 @@ with col_ocorrencia:
             else []
         )
 
+        st.session_state.ui_filtros_ocorrencias = [
+            x for x in st.session_state.ui_filtros_ocorrencias if x in ocr_opts
+        ]
+
         btn_ocr1, btn_ocr2 = st.columns(2)
         with btn_ocr1:
             if st.button("Sel. Todos", key="ocr_sel_all_res", use_container_width=True):
-                st.session_state.filtros_ocorrencias = ocr_opts
-                st.rerun()
+                st.session_state.ui_filtros_ocorrencias = ocr_opts[:]
         with btn_ocr2:
             if st.button("Desmarcar", key="ocr_clear_res", use_container_width=True):
-                st.session_state.filtros_ocorrencias = []
-                st.rerun()
+                st.session_state.ui_filtros_ocorrencias = []
 
-        st.session_state.filtros_ocorrencias = [
-            x for x in st.session_state.filtros_ocorrencias if x in ocr_opts
-        ]
-        st.session_state.filtros_ocorrencias = st.multiselect(
+        st.session_state.ui_filtros_ocorrencias = st.multiselect(
             "",
             options=ocr_opts,
-            default=st.session_state.filtros_ocorrencias,
+            default=st.session_state.ui_filtros_ocorrencias,
             label_visibility="hidden",
         )
 
-
+# --- Botão para aplicar filtros adicionais ---
+if st.button("Filtrar agora", use_container_width=True):
+    start_loading()
+    # Copia valores da UI para os filtros efetivamente aplicados
+    st.session_state.filtros_clientes = st.session_state.ui_filtros_clientes[:]
+    st.session_state.filtros_ugs = st.session_state.ui_filtros_ugs[:]
+    st.session_state.filtros_tipos = st.session_state.ui_filtros_tipos[:]
+    st.session_state.filtros_ativos = st.session_state.ui_filtros_ativos[:]
+    st.session_state.filtros_ocorrencias = st.session_state.ui_filtros_ocorrencias[:]
+    st.rerun()
 
 # --- Aplicação dos filtros ---
 meses_selecionados = [
@@ -838,7 +849,7 @@ m_dia = (
     else (s_dia.isin(dias_selecionados) | s_dia.isna() | (s_dia == 0))
 )
 
-# Máscara por categoria (igual antes)
+# Máscara por categoria
 m_cat = df["Categoria"].isin(st.session_state.filtros_categorias)
 if st.session_state.get("categoria_top") in ("DESLIGAMENTOS", "EQUIPAMENTOS"):
     m_cat = m_cat & (df["Categoria"] == st.session_state["categoria_top"])
@@ -892,7 +903,6 @@ m_final = (
 df_filtrado = df[m_final].copy()
 
 df_resolvidas = df_filtrado[~df_filtrado["Normalização"].isna()].copy()
-
 
 if st.session_state.ui_phase == "loading":
     st.session_state.ui_phase = "ready"
