@@ -71,16 +71,21 @@ def build_display_map(series: pd.Series) -> dict:
 
 
 def options_from(series: pd.Series) -> list:
-    ser = series.astype(str).map(_collapse_spaces)
-    ser = ser[(ser != "") & (ser != "-") & (ser != "0")]
-    return sorted(ser.unique().tolist())
+    series = series.astype(str).map(_collapse_spaces)
+    series = series[series != ""]
+    dmap = build_display_map(series)
+    labels = {dmap[canon(v)] for v in series}
+    # igual à página 1: devolve "-" + rótulos normalizados
+    return ["-"] + sorted(labels)
 
 
-def matches_any_canon(series: pd.Series, selected: list) -> pd.Series:
+def matches_any_canon(series: pd.Series, selected: list[str]) -> pd.Series:
+    # lista vazia => não filtra (como na página 1)
     if not selected:
         return pd.Series([True] * len(series), index=series.index)
-    ser = series.astype(str).map(_collapse_spaces)
-    return ser.isin(set(selected))
+    sel_c = {canon(s) for s in selected if s and s != "-"}
+    return series.astype(str).map(canon).isin(sel_c)
+
 
 
 meses_traducao = {
@@ -622,63 +627,9 @@ st.subheader("Filtros Adicionais")
 
 df_ref = df[~df["Normalização"].isna()].copy()
 
-cli_opts = options_from(df_ref["Cliente"]) if "Cliente" in df_ref.columns else []
-
-# Restringe as UGs aos clientes atualmente selecionados (mesma lógica da página 1)
-if "Cliente" in df_ref.columns and st.session_state.get("filtros_clientes"):
-    df_ref_ug = df_ref[df_ref["Cliente"].isin(st.session_state.filtros_clientes)]
-else:
-    df_ref_ug = df_ref
-
-ugs_series = (
-    df_ref_ug["UG"].astype(str).map(_collapse_spaces)
-    if "UG" in df_ref_ug.columns
-    else pd.Series([], dtype=str)
-)
-ug_opts = sorted([u for u in ugs_series.unique().tolist() if u and u != "-"])
-
-
-tip_opts = (
-    options_from(df_ref["Tipo de ocorrência"])
-    if "Tipo de ocorrência" in df_ref.columns
-    else []
-)
-ocr_opts = (
-    options_from(df_ref["Ocorrência"])
-    if "Ocorrência" in df_ref.columns
-    else []
-)
-atv_opts = (
-    options_from(df_ref["Ativo"]) if "Ativo" in df_ref.columns else []
-)
-
-
-def set_filter_and_rerun(key, values):
-    start_loading()
-    st.session_state[key] = list(values)
-    st.rerun()
-
-
-st.session_state.filtros_clientes = [
-    x for x in st.session_state.get("filtros_clientes", []) if x in cli_opts
-]
-st.session_state.filtros_ugs = [
-    x for x in st.session_state.get("filtros_ugs", []) if x in ug_opts
-]
-st.session_state.filtros_tipos = [
-    x for x in st.session_state.get("filtros_tipos", []) if x in tip_opts
-]
-st.session_state.filtros_ocorrencias = [
-    x for x in st.session_state.get("filtros_ocorrencias", []) if x in ocr_opts
-]
-st.session_state.filtros_ativos = [
-    x for x in st.session_state.get("filtros_ativos", []) if x in atv_opts
-]
-
-# 3 colunas em cima, 2 embaixo (como página 1)
 row1_c1, row1_c2, row1_c3 = st.columns(3)
 row2_c1, row2_c2 = st.columns(2)
-col_cliente, col_ug, col_tipo, col_ativo, col_ocr = (
+col_cliente, col_ug, col_tipo, col_ativo, col_ocorrencia = (
     row1_c1,
     row1_c2,
     row1_c3,
@@ -686,164 +637,166 @@ col_cliente, col_ug, col_tipo, col_ativo, col_ocr = (
     row2_c2,
 )
 
+# --- Cliente ---
 with col_cliente:
     with st.container(border=True):
         st.write("Cliente")
+        cli_series = df_ref["Cliente"].astype(str).map(_collapse_spaces)
+        cli_opts = sorted(
+            [v for v in cli_series.unique().tolist() if v and v not in ("-", "0")]
+        )
 
         btn_cli1, btn_cli2 = st.columns(2)
         with btn_cli1:
-            if st.button(
-                "Sel. Todos",
-                key="cli_sel_all_res",
-                use_container_width=True,
-                on_click=set_filter_and_rerun,
-                args=("filtros_clientes", cli_opts),
-            ):
-                pass
+            if st.button("Sel. Todos", key="cli_sel_all_res", use_container_width=True):
+                st.session_state.filtros_clientes = cli_opts
+                st.rerun()
         with btn_cli2:
-            if st.button(
-                "Desmarcar",
-                key="cli_clear_res",
-                use_container_width=True,
-                on_click=set_filter_and_rerun,
-                args=("filtros_clientes", []),
-            ):
-                pass
+            if st.button("Desmarcar", key="cli_clear_res", use_container_width=True):
+                st.session_state.filtros_clientes = []
+                st.rerun()
 
-        st.multiselect(
+        st.session_state.filtros_clientes = st.multiselect(
             "",
             options=cli_opts,
-            default=st.session_state.filtros_clientes,
+            default=[x for x in st.session_state.filtros_clientes if x in cli_opts],
             label_visibility="hidden",
         )
 
-
+# --- UG ---
 with col_ug:
     with st.container(border=True):
         st.write("UG")
 
+        # Cascata: se há clientes selecionados, restringe df_ref às linhas desses clientes
+        if "Cliente" in df_ref.columns and st.session_state.filtros_clientes:
+            df_temp = df_ref[
+                df_ref["Cliente"].isin(st.session_state.filtros_clientes)
+            ]
+        else:
+            df_temp = df_ref
+
+        ugs_series = (
+            df_temp["UG"].astype(str).map(_collapse_spaces)
+            if "UG" in df_temp.columns
+            else pd.Series([], dtype=str)
+        )
+        ugs_disponiveis = sorted(
+            [u for u in ugs_series.unique().tolist() if u and u != "-"]
+        )
+
+        # Mantém apenas UGs válidas no estado
+        st.session_state.filtros_ugs = [
+            ug for ug in st.session_state.filtros_ugs if ug in ugs_disponiveis
+        ]
+
         btn_ug1, btn_ug2 = st.columns(2)
         with btn_ug1:
-            if st.button(
-                "Sel. Todos",
-                key="ug_sel_all_res",
-                use_container_width=True,
-                on_click=set_filter_and_rerun,
-                args=("filtros_ugs", ug_opts),
-            ):
-                pass
+            if st.button("Sel. Todos", key="ug_sel_all_res", use_container_width=True):
+                st.session_state.filtros_ugs = ugs_disponiveis
+                st.rerun()
         with btn_ug2:
-            if st.button(
-                "Desmarcar",
-                key="ug_clear_res",
-                use_container_width=True,
-                on_click=set_filter_and_rerun,
-                args=("filtros_ugs", []),
-            ):
-                pass
+            if st.button("Desmarcar", key="ug_clear_res", use_container_width=True):
+                st.session_state.filtros_ugs = []
+                st.rerun()
 
-        st.multiselect(
+        st.session_state.filtros_ugs = st.multiselect(
             "",
-            options=ug_opts,
+            options=ugs_disponiveis,
             default=st.session_state.filtros_ugs,
             label_visibility="hidden",
         )
 
-
+# --- Tipo de Ocorrência ---
 with col_tipo:
     with st.container(border=True):
         st.write("Tipo de Ocorrência")
+        tip_opts = sorted(
+            [x for x in options_from(df_ref["Tipo de ocorrência"]) if x != "-"]
+            if "Tipo de ocorrência" in df_ref.columns
+            else []
+        )
 
         btn_tipo1, btn_tipo2 = st.columns(2)
         with btn_tipo1:
-            if st.button(
-                "Sel. Todos",
-                key="tipo_sel_all_res",
-                use_container_width=True,
-                on_click=set_filter_and_rerun,
-                args=("filtros_tipos", tip_opts),
-            ):
-                pass
+            if st.button("Sel. Todos", key="tipo_sel_all_res", use_container_width=True):
+                st.session_state.filtros_tipos = tip_opts
+                st.rerun()
         with btn_tipo2:
-            if st.button(
-                "Desmarcar",
-                key="tipo_clear_res",
-                use_container_width=True,
-                on_click=set_filter_and_rerun,
-                args=("filtros_tipos", []),
-            ):
-                pass
+            if st.button("Desmarcar", key="tipo_clear_res", use_container_width=True):
+                st.session_state.filtros_tipos = []
+                st.rerun()
 
-        st.multiselect(
+        st.session_state.filtros_tipos = [
+            x for x in st.session_state.filtros_tipos if x in tip_opts
+        ]
+        st.session_state.filtros_tipos = st.multiselect(
             "",
             options=tip_opts,
             default=st.session_state.filtros_tipos,
             label_visibility="hidden",
         )
 
-
+# --- Ativo ---
 with col_ativo:
     with st.container(border=True):
         st.write("Ativo")
+        atv_opts = sorted(
+            [x for x in options_from(df_ref["Ativo"]) if x != "-"]
+            if "Ativo" in df_ref.columns
+            else []
+        )
 
         btn_atv1, btn_atv2 = st.columns(2)
         with btn_atv1:
-            if st.button(
-                "Sel. Todos",
-                key="ativo_sel_all_res",
-                use_container_width=True,
-                on_click=set_filter_and_rerun,
-                args=("filtros_ativos", atv_opts),
-            ):
-                pass
+            if st.button("Sel. Todos", key="ativo_sel_all_res", use_container_width=True):
+                st.session_state.filtros_ativos = atv_opts
+                st.rerun()
         with btn_atv2:
-            if st.button(
-                "Desmarcar",
-                key="ativo_clear_res",
-                use_container_width=True,
-                on_click=set_filter_and_rerun,
-                args=("filtros_ativos", []),
-            ):
-                pass
+            if st.button("Desmarcar", key="ativo_clear_res", use_container_width=True):
+                st.session_state.filtros_ativos = []
+                st.rerun()
 
-        st.multiselect(
+        st.session_state.filtros_ativos = [
+            x for x in st.session_state.filtros_ativos if x in atv_opts
+        ]
+        st.session_state.filtros_ativos = st.multiselect(
             "",
             options=atv_opts,
             default=st.session_state.filtros_ativos,
             label_visibility="hidden",
         )
 
-
-with col_ocr:
+# --- Ocorrência ---
+with col_ocorrencia:
     with st.container(border=True):
         st.write("Ocorrência")
+        ocr_opts = sorted(
+            [x for x in options_from(df_ref["Ocorrência"]) if x != "-"]
+            if "Ocorrência" in df_ref.columns
+            else []
+        )
 
         btn_ocr1, btn_ocr2 = st.columns(2)
         with btn_ocr1:
-            if st.button(
-                "Sel. Todos",
-                key="ocr_sel_all_res",
-                use_container_width=True,
-                on_click=set_filter_and_rerun,
-                args=("filtros_ocorrencias", ocr_opts),
-            ):
-                pass
+            if st.button("Sel. Todos", key="ocr_sel_all_res", use_container_width=True):
+                st.session_state.filtros_ocorrencias = ocr_opts
+                st.rerun()
         with btn_ocr2:
-            if st.button(
-                "Desmarcar",
-                key="ocr_clear_res",
-                use_container_width=True,
-                on_click=set_filter_and_rerun,
-                args=("filtros_ocorrencias", []),
-            ):
-                pass
+            if st.button("Desmarcar", key="ocr_clear_res", use_container_width=True):
+                st.session_state.filtros_ocorrencias = []
+                st.rerun()
 
-        st.multiselect(
+        st.session_state.filtros_ocorrencias = [
+            x for x in st.session_state.filtros_ocorrencias if x in ocr_opts
+        ]
+        st.session_state.filtros_ocorrencias = st.multiselect(
             "",
             options=ocr_opts,
             default=st.session_state.filtros_ocorrencias,
             label_visibility="hidden",
         )
+
 
 
 # --- Aplicação dos filtros ---
