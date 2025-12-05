@@ -315,9 +315,6 @@ if "cache_buster" not in st.session_state:
 df = carregar_dados_google_sheets(st.session_state.cache_buster)
 df["Desligamento"] = pd.to_datetime(df["Desligamento"], errors="coerce")
 
-# Flag para saber se filtros adicionais devem ser aplicados
-if "aplicar_filtros_adicionais" not in st.session_state:
-    st.session_state.aplicar_filtros_adicionais = False
 
 # --- 5. KPIs do topo (RESOLVIDAS) ---
 count_resolvidos_deslig = df[
@@ -354,9 +351,11 @@ with st.container(border=True):
             unsafe_allow_html=True,
         )
 
-# --- 6. Inicialização de filtros ---
+
+# --- 6. Inicialização de filtros (APLICADOS) ---
 st.header("OCORRÊNCIAS FILTRADAS")
 
+# Período (aplicado)
 if "filtros_meses" not in st.session_state:
     st.session_state.filtros_meses = [
         meses_traducao[datetime.now().strftime("%B")]
@@ -378,10 +377,18 @@ if "filtros_dias" not in st.session_state:
         st.session_state.filtros_dias = [d for d in dias_atuais if d != 0]
     else:
         st.session_state.filtros_dias = []
+
+# Categoria (aplicada)
 if "filtros_categorias" not in st.session_state:
     st.session_state.filtros_categorias = (
         sorted(df["Categoria"].unique().tolist()) if not df.empty else []
     )
+if "categoria_top" not in st.session_state:
+    st.session_state.categoria_top = "Ambas"
+if "categoria_top_aplicada" not in st.session_state:
+    st.session_state.categoria_top_aplicada = st.session_state.categoria_top
+
+# Filtros adicionais (aplicados)
 if "filtros_clientes" not in st.session_state:
     st.session_state.filtros_clientes = (
         sorted(df["Cliente"].unique().tolist()) if not df.empty else []
@@ -409,6 +416,28 @@ if "filtros_ocorrencias" not in st.session_state:
         else []
     )
 
+# --- Estados de UI (copiados dos aplicados na 1ª vez) ---
+if "ui_filtros_anos" not in st.session_state:
+    st.session_state.ui_filtros_anos = st.session_state.filtros_anos.copy()
+if "ui_filtros_meses" not in st.session_state:
+    st.session_state.ui_filtros_meses = st.session_state.filtros_meses.copy()
+if "ui_filtros_dias" not in st.session_state:
+    st.session_state.ui_filtros_dias = st.session_state.filtros_dias.copy()
+if "ui_categoria_top" not in st.session_state:
+    st.session_state.ui_categoria_top = st.session_state.categoria_top
+
+if "ui_filtros_clientes" not in st.session_state:
+    st.session_state.ui_filtros_clientes = st.session_state.filtros_clientes.copy()
+if "ui_filtros_ugs" not in st.session_state:
+    st.session_state.ui_filtros_ugs = st.session_state.filtros_ugs.copy()
+if "ui_filtros_tipos" not in st.session_state:
+    st.session_state.ui_filtros_tipos = st.session_state.filtros_tipos.copy()
+if "ui_filtros_ativos" not in st.session_state:
+    st.session_state.ui_filtros_ativos = st.session_state.filtros_ativos.copy()
+if "ui_filtros_ocorrencias" not in st.session_state:
+    st.session_state.ui_filtros_ocorrencias = st.session_state.filtros_ocorrencias.copy()
+
+
 col_kpi1, col_kpi2 = st.columns(2)
 with col_kpi1:
     total_resolvidas_banco = df[~df["Normalização"].isna()].shape[0]
@@ -422,6 +451,7 @@ with col_kpi1:
         unsafe_allow_html=True,
     )
 
+
 # Botão atualizar
 col_left, _ = st.columns([0.2, 0.8])
 with col_left:
@@ -429,8 +459,10 @@ with col_left:
         st.cache_data.clear()
         start_loading()
         st.session_state.cache_buster = int(pytime.time())
-        # reseta o flag dos filtros adicionais ao atualizar
-        st.session_state.aplicar_filtros_adicionais = False
+        # reseta filtros aplicados e UI para forçar reinit
+        for k in list(st.session_state.keys()):
+            if k.startswith("filtros_") or k.startswith("ui_filtros_") or k.startswith("cb_") or k.startswith("categoria_top"):
+                del st.session_state[k]
         st.rerun()
 
 
@@ -454,19 +486,17 @@ def marcar_loading(prefixo_key, itens, filtro_key, marcar_todos, validos=None):
     _marcar(prefixo_key, itens, filtro_key, marcar_todos, validos)
 
 
-# --- Filtros por período ---
+# --- Filtros por período (UI) ---
 if not df.empty:
-    if "categoria_top" not in st.session_state:
-        st.session_state.categoria_top = "Ambas"
-
     st.markdown("#### Filtrar por categoria (planilha)")
-    st.radio(
+    st.session_state.ui_categoria_top = st.radio(
         "Categoria:",
         options=["Ambas", "DESLIGAMENTOS", "EQUIPAMENTOS"],
         horizontal=True,
         label_visibility="collapsed",
-        key="categoria_top",
-        on_change=start_loading,
+        index=["Ambas", "DESLIGAMENTOS", "EQUIPAMENTOS"].index(
+            st.session_state.ui_categoria_top
+        ),
     )
 
     st.subheader("Selecione o período desejado")
@@ -484,7 +514,7 @@ if not df.empty:
                     st.checkbox(
                         str(ano),
                         key=f"cb_ano_{ano}",
-                        value=(ano in st.session_state.filtros_anos),
+                        value=(ano in st.session_state.ui_filtros_anos),
                     )
 
             btn_ano1, btn_ano2 = st.columns(2)
@@ -494,7 +524,7 @@ if not df.empty:
                     key="sel_ano_res",
                     use_container_width=True,
                     on_click=marcar_loading,
-                    args=("cb_ano_", anos_disponiveis, "filtros_anos", True),
+                    args=("cb_ano_", anos_disponiveis, "ui_filtros_anos", True),
                 )
             with btn_ano2:
                 clicked_des_ano = st.button(
@@ -502,10 +532,10 @@ if not df.empty:
                     key="des_ano_res",
                     use_container_width=True,
                     on_click=marcar_loading,
-                    args=("cb_ano_", anos_disponiveis, "filtros_anos", False),
+                    args=("cb_ano_", anos_disponiveis, "ui_filtros_anos", False),
                 )
             if not (clicked_sel_ano or clicked_des_ano):
-                st.session_state.filtros_anos = [
+                st.session_state.ui_filtros_anos = [
                     a
                     for a in anos_disponiveis
                     if st.session_state.get(f"cb_ano_{a}", False)
@@ -520,7 +550,7 @@ if not df.empty:
                     st.checkbox(
                         mes,
                         key=f"cb_mes_{mes}",
-                        value=(mes in st.session_state.filtros_meses),
+                        value=(mes in st.session_state.ui_filtros_meses),
                     )
 
             btn_mes1, btn_mes2 = st.columns(2)
@@ -530,7 +560,7 @@ if not df.empty:
                     key="sel_mes_res",
                     use_container_width=True,
                     on_click=marcar_loading,
-                    args=("cb_mes_", meses_disponiveis, "filtros_meses", True),
+                    args=("cb_mes_", meses_disponiveis, "ui_filtros_meses", True),
                 )
             with btn_mes2:
                 clicked_des_mes = st.button(
@@ -538,26 +568,31 @@ if not df.empty:
                     key="des_mes_res",
                     use_container_width=True,
                     on_click=marcar_loading,
-                    args=("cb_mes_", meses_disponiveis, "filtros_meses", False),
+                    args=("cb_mes_", meses_disponiveis, "ui_filtros_meses", False),
                 )
             if not (clicked_sel_mes or clicked_des_mes):
-                st.session_state.filtros_meses = [
+                st.session_state.ui_filtros_meses = [
                     m
                     for m in meses_disponiveis
                     if st.session_state.get(f"cb_mes_{m}", False)
                 ]
 
-    # Dia(s)
-    anossel = [
+    # Dia(s) – depende de anos/meses da UI
+    anossel_ui = [
         a for a in anos_disponiveis if st.session_state.get(f"cb_ano_{a}", False)
     ]
-    mesessel = [
+    mesessel_ui = [
         m for m in meses_disponiveis if st.session_state.get(f"cb_mes_{m}", False)
     ]
+    if not anossel_ui:
+        anossel_ui = anos_disponiveis[:]
+    if not mesessel_ui:
+        mesessel_ui = meses_disponiveis[:]
+
     dias_disponiveis = sorted(
         df[
-            df["Ano"].isin(anossel)
-            & df["Mês"].isin(mesessel)
+            df["Ano"].isin(anossel_ui)
+            & df["Mês"].isin(mesessel_ui)
             & df["Dia"].notna()
             & (df["Dia"] > 0)
         ]["Dia"]
@@ -578,7 +613,7 @@ if not df.empty:
                             st.checkbox(
                                 str(dia),
                                 key=f"cb_dia_{dia}",
-                                value=(dia in st.session_state.filtros_dias),
+                                value=(dia in st.session_state.ui_filtros_dias),
                             )
                         else:
                             st.checkbox(
@@ -597,7 +632,7 @@ if not df.empty:
                     args=(
                         "cb_dia_",
                         list(range(1, 32)),
-                        "filtros_dias",
+                        "ui_filtros_dias",
                         True,
                         set(dias_disponiveis),
                     ),
@@ -611,34 +646,23 @@ if not df.empty:
                     args=(
                         "cb_dia_",
                         list(range(1, 32)),
-                        "filtros_dias",
+                        "ui_filtros_dias",
                         False,
                         set(dias_disponiveis),
                     ),
                 )
             if not (clicked_sel_dia or clicked_des_dia):
-                st.session_state.filtros_dias = [
+                st.session_state.ui_filtros_dias = [
                     d
                     for d in dias_disponiveis
                     if st.session_state.get(f"cb_dia_{d}", False)
                 ]
 
-# --- Filtros Adicionais (sobre resolvidas) ---
+
+# --- Filtros Adicionais (UI, sobre resolvidas) ---
 st.subheader("Filtros Adicionais")
 
 df_ref = df[~df["Normalização"].isna()].copy()
-
-# Inicializa estados de UI (usados pelos widgets) a partir dos filtros aplicados
-if "ui_filtros_clientes" not in st.session_state:
-    st.session_state.ui_filtros_clientes = st.session_state.filtros_clientes.copy()
-if "ui_filtros_ugs" not in st.session_state:
-    st.session_state.ui_filtros_ugs = st.session_state.filtros_ugs.copy()
-if "ui_filtros_tipos" not in st.session_state:
-    st.session_state.ui_filtros_tipos = st.session_state.filtros_tipos.copy()
-if "ui_filtros_ativos" not in st.session_state:
-    st.session_state.ui_filtros_ativos = st.session_state.filtros_ativos.copy()
-if "ui_filtros_ocorrencias" not in st.session_state:
-    st.session_state.ui_filtros_ocorrencias = st.session_state.filtros_ocorrencias.copy()
 
 row1_c1, row1_c2, row1_c3 = st.columns(3)
 row2_c1, row2_c2 = st.columns(2)
@@ -807,13 +831,20 @@ with col_ocorrencia:
             label_visibility="hidden",
         )
 
-# --- Botão para aplicar filtros adicionais ---
+
+# --- Botão para aplicar TODOS os filtros (período + adicionais) ---
 if st.button("FILTRAR AGORA", use_container_width=True):
     start_loading()
-    # Marca que os filtros adicionais devem ser considerados nas máscaras
-    st.session_state.aplicar_filtros_adicionais = True
 
-    # Copia valores da UI para os filtros efetivamente aplicados
+    # Período
+    st.session_state.filtros_anos = st.session_state.ui_filtros_anos[:]
+    st.session_state.filtros_meses = st.session_state.ui_filtros_meses[:]
+    st.session_state.filtros_dias = st.session_state.ui_filtros_dias[:]
+
+    # Categoria
+    st.session_state.categoria_top_aplicada = st.session_state.ui_categoria_top
+
+    # Filtros adicionais
     st.session_state.filtros_clientes = st.session_state.ui_filtros_clientes[:]
     st.session_state.filtros_ugs = st.session_state.ui_filtros_ugs[:]
     st.session_state.filtros_tipos = st.session_state.ui_filtros_tipos[:]
@@ -822,20 +853,15 @@ if st.button("FILTRAR AGORA", use_container_width=True):
 
     st.rerun()
 
-# --- Aplicação dos filtros ---
-meses_selecionados = [
-    mes for mes in meses_cronologicos if st.session_state.get(f"cb_mes_{mes}", False)
-]
-anos_selecionados = [
-    ano for ano in anos_disponiveis if st.session_state.get(f"cb_ano_{ano}", False)
-]
-dias_selecionados = [
-    dia for dia in dias_disponiveis if st.session_state.get(f"cb_dia_{dia}", False)
-]
 
-set_anos_disp = set(anos_disponiveis)
+# --- Aplicação dos filtros (sempre usa APPLIED, nunca UI) ---
+anos_selecionados = st.session_state.filtros_anos
+meses_selecionados = st.session_state.filtros_meses
+dias_selecionados = st.session_state.filtros_dias
+
+set_anos_disp = set(sorted([a for a in df["Ano"].unique() if a != 0]))
 set_meses_disp = set(meses_cronologicos)
-set_dias_disp = set(dias_disponiveis)
+set_dias_disp = set(range(1, 32))
 
 all_anos = set(anos_selecionados) == set_anos_disp and len(set_anos_disp) > 0
 all_meses = set(meses_selecionados) == set_meses_disp and len(set_meses_disp) > 0
@@ -847,37 +873,34 @@ s_dia = df["Dia"]
 
 m_ano = (
     s_ano.isin(anos_selecionados)
-    if not all_anos
-    else (s_ano.isin(anos_selecionados) | s_ano.isna() | (s_ano == 0))
+    if anos_selecionados and not all_anos
+    else pd.Series(True, index=df.index)
 )
 m_mes = (
     s_mes.isin(meses_selecionados)
-    if not all_meses
-    else (s_mes.isin(meses_selecionados) | s_mes.isna() | (s_mes.astype(str) == ""))
+    if meses_selecionados and not all_meses
+    else pd.Series(True, index=df.index)
 )
 m_dia = (
     s_dia.isin(dias_selecionados)
-    if not all_dias
-    else (s_dia.isin(dias_selecionados) | s_dia.isna() | (s_dia == 0))
+    if dias_selecionados and not all_dias
+    else pd.Series(True, index=df.index)
 )
 
 # Máscara por categoria
 m_cat = df["Categoria"].isin(st.session_state.filtros_categorias)
-if st.session_state.get("categoria_top") in ("DESLIGAMENTOS", "EQUIPAMENTOS"):
-    m_cat = m_cat & (df["Categoria"] == st.session_state["categoria_top"])
-
-# --- Filtros adicionais: só aplicam se aplicar_filtros_adicionais == True ---
-usar_extra = st.session_state.get("aplicar_filtros_adicionais", False)
+cat_top = st.session_state.categoria_top_aplicada
+if cat_top in ("DESLIGAMENTOS", "EQUIPAMENTOS"):
+    m_cat = m_cat & (df["Categoria"] == cat_top)
 
 # Cliente
-if usar_extra and st.session_state.filtros_clientes:
+if st.session_state.filtros_clientes:
     m_cli = matches_any_canon(df["Cliente"], st.session_state.filtros_clientes)
 else:
-    # Antes de clicar em FILTRAR AGORA ou sem clientes aplicados -> não restringe por cliente
     m_cli = pd.Series(True, index=df.index)
 
 # UG
-if usar_extra and st.session_state.filtros_ugs:
+if st.session_state.filtros_ugs:
     m_ug = df["UG"].astype(str).map(_collapse_spaces).isin(
         set(st.session_state.filtros_ugs)
     )
@@ -885,11 +908,7 @@ else:
     m_ug = pd.Series(True, index=df.index)
 
 # Tipo de ocorrência
-if (
-    usar_extra
-    and ("Tipo de ocorrência" in df.columns)
-    and st.session_state.filtros_tipos
-):
+if "Tipo de ocorrência" in df.columns and st.session_state.filtros_tipos:
     m_tip = matches_any_canon(
         df["Tipo de ocorrência"], st.session_state.filtros_tipos
     )
@@ -897,11 +916,7 @@ else:
     m_tip = pd.Series(True, index=df.index)
 
 # Ocorrência
-if (
-    usar_extra
-    and ("Ocorrência" in df.columns)
-    and st.session_state.filtros_ocorrencias
-):
+if "Ocorrência" in df.columns and st.session_state.filtros_ocorrencias:
     m_ocr = matches_any_canon(
         df["Ocorrência"], st.session_state.filtros_ocorrencias
     )
@@ -909,7 +924,7 @@ else:
     m_ocr = pd.Series(True, index=df.index)
 
 # Ativo
-if usar_extra and ("Ativo" in df.columns) and st.session_state.filtros_ativos:
+if "Ativo" in df.columns and st.session_state.filtros_ativos:
     m_atv = matches_any_canon(df["Ativo"], st.session_state.filtros_ativos)
 else:
     m_atv = pd.Series(True, index=df.index)
