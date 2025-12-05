@@ -213,6 +213,7 @@ h1{
     unsafe_allow_html=True,
 )
 
+
 # --- 4. Carregar e Tratar os Dados ---
 @st.cache_data(ttl=600)
 def carregar_dados_google_sheets(cache_buster: int = 0):
@@ -313,6 +314,10 @@ if "cache_buster" not in st.session_state:
 
 df = carregar_dados_google_sheets(st.session_state.cache_buster)
 df["Desligamento"] = pd.to_datetime(df["Desligamento"], errors="coerce")
+
+# Flag para saber se filtros adicionais devem ser aplicados
+if "aplicar_filtros_adicionais" not in st.session_state:
+    st.session_state.aplicar_filtros_adicionais = False
 
 # --- 5. KPIs do topo (RESOLVIDAS) ---
 count_resolvidos_deslig = df[
@@ -424,6 +429,8 @@ with col_left:
         st.cache_data.clear()
         start_loading()
         st.session_state.cache_buster = int(pytime.time())
+        # reseta o flag dos filtros adicionais ao atualizar
+        st.session_state.aplicar_filtros_adicionais = False
         st.rerun()
 
 
@@ -445,6 +452,7 @@ def _marcar(
 def marcar_loading(prefixo_key, itens, filtro_key, marcar_todos, validos=None):
     start_loading()
     _marcar(prefixo_key, itens, filtro_key, marcar_todos, validos)
+
 
 # --- Filtros por período ---
 if not df.empty:
@@ -800,14 +808,18 @@ with col_ocorrencia:
         )
 
 # --- Botão para aplicar filtros adicionais ---
-if st.button("Filtrar agora", use_container_width=True):
+if st.button("FILTRAR AGORA", use_container_width=True):
     start_loading()
+    # Marca que os filtros adicionais devem ser considerados nas máscaras
+    st.session_state.aplicar_filtros_adicionais = True
+
     # Copia valores da UI para os filtros efetivamente aplicados
     st.session_state.filtros_clientes = st.session_state.ui_filtros_clientes[:]
     st.session_state.filtros_ugs = st.session_state.ui_filtros_ugs[:]
     st.session_state.filtros_tipos = st.session_state.ui_filtros_tipos[:]
     st.session_state.filtros_ativos = st.session_state.ui_filtros_ativos[:]
     st.session_state.filtros_ocorrencias = st.session_state.ui_filtros_ocorrencias[:]
+
     st.rerun()
 
 # --- Aplicação dos filtros ---
@@ -854,45 +866,51 @@ m_cat = df["Categoria"].isin(st.session_state.filtros_categorias)
 if st.session_state.get("categoria_top") in ("DESLIGAMENTOS", "EQUIPAMENTOS"):
     m_cat = m_cat & (df["Categoria"] == st.session_state["categoria_top"])
 
-# Cliente: se lista vazia, nenhuma linha passa
-if st.session_state.filtros_clientes:
+# --- Filtros adicionais: só aplicam se aplicar_filtros_adicionais == True ---
+usar_extra = st.session_state.get("aplicar_filtros_adicionais", False)
+
+# Cliente
+if usar_extra and st.session_state.filtros_clientes:
     m_cli = matches_any_canon(df["Cliente"], st.session_state.filtros_clientes)
 else:
-    m_cli = pd.Series(False, index=df.index)
+    # Antes de clicar em FILTRAR AGORA ou sem clientes aplicados -> não restringe por cliente
+    m_cli = pd.Series(True, index=df.index)
 
 # UG
-if st.session_state.filtros_ugs:
+if usar_extra and st.session_state.filtros_ugs:
     m_ug = df["UG"].astype(str).map(_collapse_spaces).isin(
         set(st.session_state.filtros_ugs)
     )
 else:
-    m_ug = pd.Series(False, index=df.index)
+    m_ug = pd.Series(True, index=df.index)
 
 # Tipo de ocorrência
-if "Tipo de ocorrência" in df.columns and st.session_state.filtros_tipos:
+if (
+    usar_extra
+    and ("Tipo de ocorrência" in df.columns)
+    and st.session_state.filtros_tipos
+):
     m_tip = matches_any_canon(
         df["Tipo de ocorrência"], st.session_state.filtros_tipos
     )
-elif "Tipo de ocorrência" in df.columns:
-    m_tip = pd.Series(False, index=df.index)
 else:
     m_tip = pd.Series(True, index=df.index)
 
 # Ocorrência
-if "Ocorrência" in df.columns and st.session_state.filtros_ocorrencias:
+if (
+    usar_extra
+    and ("Ocorrência" in df.columns)
+    and st.session_state.filtros_ocorrencias
+):
     m_ocr = matches_any_canon(
         df["Ocorrência"], st.session_state.filtros_ocorrencias
     )
-elif "Ocorrência" in df.columns:
-    m_ocr = pd.Series(False, index=df.index)
 else:
     m_ocr = pd.Series(True, index=df.index)
 
 # Ativo
-if "Ativo" in df.columns and st.session_state.filtros_ativos:
+if usar_extra and ("Ativo" in df.columns) and st.session_state.filtros_ativos:
     m_atv = matches_any_canon(df["Ativo"], st.session_state.filtros_ativos)
-elif "Ativo" in df.columns:
-    m_atv = pd.Series(False, index=df.index)
 else:
     m_atv = pd.Series(True, index=df.index)
 
