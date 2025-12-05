@@ -623,7 +623,8 @@ st.subheader("Filtros Adicionais")
 df_ref = df[~df["Normalização"].isna()].copy()
 
 cli_opts = options_from(df_ref["Cliente"]) if "Cliente" in df_ref.columns else []
-# Restringir UGs aos clientes selecionados (como na página 1)
+
+# Restringe as UGs aos clientes atualmente selecionados (mesma lógica da página 1)
 if "Cliente" in df_ref.columns and st.session_state.get("filtros_clientes"):
     df_ref_ug = df_ref[df_ref["Cliente"].isin(st.session_state.filtros_clientes)]
 else:
@@ -635,6 +636,7 @@ ugs_series = (
     else pd.Series([], dtype=str)
 )
 ug_opts = sorted([u for u in ugs_series.unique().tolist() if u and u != "-"])
+
 
 tip_opts = (
     options_from(df_ref["Tipo de ocorrência"])
