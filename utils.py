@@ -44,38 +44,50 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (ADICIONADO) ---
+# --- CSS E TEMA (CORRIGIDO: Persistência + Links da Sidebar) ---
 def render_page_config_and_css():
-    """
-    Injeta o CSS dinâmico para os cartões KPI e controla o fundo da página.
-    """
     st.sidebar.markdown("### 🎨 Visual")
+    
+    # Adicionando 'key' ao radio button, o Streamlit salva a escolha automaticamente
+    # no session_state, persistindo a opção ao mudar de página.
     tema_cards = st.sidebar.radio(
         "Fundo dos Indicadores:",
         options=["Automático (Claro/Escuro)", "Sempre Escuro"],
-        index=0
+        key="tema_visual_persistente" 
     )
 
     global_dark_override = ""
-
+    
     if tema_cards == "Sempre Escuro":
         kpi_bg = "#333333"
         kpi_text = "#FFFFFF"
         kpi_border = "none"
         
-        # CSS para forçar o modo escuro na aplicação inteira
+        # CSS para forçar o modo escuro na aplicação inteira e CORRIGIR LINKS
         global_dark_override = """
         <style>
+            /* Força fundo escuro no corpo principal */
             .stApp {
                 background-color: #0E1117 !important;
                 color: #FAFAFA !important;
             }
+            /* Força fundo escuro na barra lateral */
             [data-testid="stSidebar"] {
                 background-color: #262730 !important;
             }
-            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label {
+            /* Força cor BRANCA em todos os textos e links da Sidebar */
+            [data-testid="stSidebar"] *, 
+            [data-testid="stSidebar"] a, 
+            [data-testid="stSidebar"] span, 
+            [data-testid="stSidebar"] p,
+            [data-testid="stSidebarNav"] a {
                 color: #FAFAFA !important;
             }
+            /* Textos gerais do corpo */
+            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label {
+                color: #FAFAFA !important;
+            }
+            /* Inputs (Caixas de texto/seleção) */
             .stTextInput > div > div, .stSelectbox > div > div, .stMultiSelect > div > div {
                 background-color: #262730 !important;
                 color: white !important;
@@ -112,7 +124,7 @@ def render_page_config_and_css():
             font-size: clamp(1.6rem, 6vw, 3rem);
             font-weight: 700;
             margin-top: 5px;
-            /* A cor do número é definida inline no HTML */
+            /* A cor do número é definida inline no HTML de cada página */
         }}
     </style>
     """, unsafe_allow_html=True)
