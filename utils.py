@@ -44,7 +44,7 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (CORRIGIDO: Contraste Total em Inputs e Dropdowns) ---
+# --- CSS E TEMA (CORRIGIDO: Contraste Extremo para Inputs e Listas) ---
 def render_page_config_and_css():
     """
     Injeta o CSS dinâmico e controla o tema visual com persistência manual.
@@ -84,7 +84,7 @@ def render_page_config_and_css():
         kpi_text = "#FFFFFF"
         kpi_border = "none"
         
-        # CSS EXTENDIDO E ESPECÍFICO PARA CORRIGIR INPUTS
+        # CSS AGRESSIVO PARA CORRIGIR O CONTRASTE
         global_dark_override = """
         <style>
             /* 1. Fundo Global e Texto Base */
@@ -98,66 +98,69 @@ def render_page_config_and_css():
                 background-color: #262730 !important;
             }
             
-            /* 3. Textos Gerais e Links (Força Branco) */
-            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label,
-            [data-testid="stSidebar"] *, [data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] span {
-                color: #FAFAFA !important;
+            /* 3. Forçar texto branco em títulos e labels */
+            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label, span, div {
+                color: #FAFAFA;
             }
 
-            /* --- CORREÇÃO DE INPUTS E DROPDOWNS --- */
-
-            /* 4. Caixas de Texto, Data, Hora e Número (Fundo Escuro) */
+            /* --- CORREÇÃO DOS INPUTS (Texto, Data, Hora) --- */
             .stTextInput input, .stNumberInput input, .stDateInput input, .stTimeInput input, .stTextArea textarea {
                 background-color: #262730 !important;
-                color: #FAFAFA !important;
+                color: #FFFFFF !important;
                 border: 1px solid #4A4A4A !important;
             }
+            /* Placeholders (Texto cinza "Selecione...") */
+            ::placeholder {
+                color: #CCCCCC !important;
+                opacity: 1 !important;
+            }
 
-            /* 5. Selectbox e Multiselect (A caixa fechada) */
+            /* --- CORREÇÃO CRÍTICA DO DROPDOWN (SELECTBOX) --- */
+            
+            /* A caixa fechada (Antes de clicar) */
             div[data-baseweb="select"] > div {
                 background-color: #262730 !important;
-                color: #FAFAFA !important;
                 border-color: #4A4A4A !important;
+                color: #FFFFFF !important;
             }
             
-            /* 6. Texto dentro do Selectbox (item selecionado ou placeholder) */
-            div[data-baseweb="select"] span {
-                color: #FAFAFA !important;
+            /* O texto dentro da caixa fechada */
+            div[data-baseweb="select"] > div > div {
+                color: #FFFFFF !important;
             }
             
-            /* 7. Ícones (Seta para baixo, X de fechar) */
+            /* Os ícones (seta e X) */
             div[data-baseweb="select"] svg {
-                fill: #FAFAFA !important;
+                fill: #FFFFFF !important;
             }
 
-            /* 8. LISTA SUSPENSA (O menu que abre) - Aqui estava o problema do fundo branco */
+            /* O MENU SUSPENSO (Quando clica e abre) */
             ul[data-baseweb="menu"] {
                 background-color: #262730 !important;
                 border: 1px solid #4A4A4A !important;
             }
 
-            /* 9. ITENS DA LISTA (Opções não focadas) */
+            /* ITENS DA LISTA (Opções normais) */
             li[data-baseweb="option"] {
                 background-color: #262730 !important;
-                color: #FAFAFA !important;
+                color: #FFFFFF !important;
+            }
+            
+            /* Texto dentro dos itens da lista */
+            li[data-baseweb="option"] div {
+                color: #FFFFFF !important;
             }
 
-            /* 10. ITEM EM FOCO / HOVER (Para dar destaque) */
-            li[data-baseweb="option"]:hover, li[aria-selected="true"] {
-                background-color: #FF4B4B !important; /* Vermelho destaque */
-                color: white !important;
+            /* ITEM EM FOCO / MOUSE EM CIMA / SELECIONADO */
+            li[data-baseweb="option"]:hover, 
+            li[data-baseweb="option"][aria-selected="true"] {
+                background-color: #FF4B4B !important; /* Fundo Vermelho */
+                color: #FFFFFF !important;
             }
             
-            /* 11. Placeholders (Texto cinza "Selecione..." ou "Digite...") */
-            ::placeholder, input::placeholder, textarea::placeholder {
-                color: #cccccc !important; 
-                opacity: 1 !important; /* Firefox precisa disso */
-            }
-            
-            /* 12. Cor do texto do valor selecionado no Multiselect (Tags) */
-            .stMultiSelect [data-baseweb="tag"] {
-                background-color: #4A4A4A !important;
-                color: white !important;
+            /* Corrige textos específicos que podem estar herdando preto */
+            [data-testid="stSidebar"] *, [data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] span {
+                color: #FAFAFA !important;
             }
         </style>
         """
