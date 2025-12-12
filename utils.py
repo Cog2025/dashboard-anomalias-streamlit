@@ -22,13 +22,14 @@ SHEET_DETALHADA = "Usinas_Detalhado"
 # --- CONEXÃO GOOGLE SHEETS ---
 @st.cache_resource(ttl=600)
 def connect_to_google_sheets():
+    """Conecta usando secrets.toml (nuvem) ou arquivo local (fallback)."""
     if "gcp_service_account" in st.secrets:
         creds_dict = dict(st.secrets["gcp_service_account"])
         creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
     elif os.path.exists(CREDS_FILE):
         creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
     else:
-        st.error("Credenciais não encontradas.")
+        st.error("Credenciais não encontradas. Configure o secrets.toml ou adicione o google_credentials.json.")
         return None
     client = gspread.authorize(creds)
     return client
@@ -44,44 +45,33 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (NOVO) ---
-def render_page_config_and_css(page_title="Monitoramento"):
+# --- CSS E TEMA INTELIGENTE (NOVO) ---
+def render_page_config_and_css():
     """
-    Injeta o CSS global e controla o tema dos Cards (KPIs).
+    Controla APENAS a cor dos cartões de KPI (Topo).
+    Mantém o restante do estilo original.
     """
-    
-    # Controle de Tema na Sidebar
-    st.sidebar.markdown("### 🎨 Configuração Visual")
+    st.sidebar.markdown("### 🎨 Visual")
     tema_cards = st.sidebar.radio(
-        "Estilo dos Cartões (KPIs):",
-        options=["Automático (Adaptável)", "Sempre Escuro"],
-        index=0,
-        help="Automático: Fundo claro no modo claro, escuro no modo escuro.\nSempre Escuro: Mantém o visual 'Dark' original."
+        "Fundo dos Indicadores:",
+        options=["Automático (Claro/Escuro)", "Sempre Escuro"],
+        index=0
     )
 
-    # Definição das variáveis CSS baseadas na escolha
+    # Lógica de cores
     if tema_cards == "Sempre Escuro":
-        # Força as cores escuras originais
         kpi_bg = "#333333"
         kpi_text = "#FFFFFF"
-        kpi_border = "1px solid #444"
+        kpi_border = "none"
     else:
-        # Usa variáveis nativas do Streamlit para adaptar ao navegador
+        # Usa variáveis do Streamlit para se adaptar ao tema do navegador
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
 
-    # CSS Global
     st.markdown(f"""
     <style>
-        /* Ajuste global de largura e padding */
-        .main .block-container{{
-            max-width: 100% !important;
-            padding-left: 2rem !important;
-            padding-right: 2rem !important;
-        }}
-
-        /* Estilo dos KPI Cards (Os retângulos superiores) */
+        /* CSS Dinâmico APENAS para os KPIs */
         .kpi-card {{
             background-color: {kpi_bg};
             color: {kpi_text};
@@ -89,36 +79,18 @@ def render_page_config_and_css(page_title="Monitoramento"):
             border-radius: 10px;
             text-align: center;
             border: {kpi_border};
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }}
-        
-        /* Rótulo do KPI */
         .kpi-label {{
             font-size: clamp(.85rem, 2.5vw, 1rem);
             color: {kpi_text};
             opacity: 0.9;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }}
-
-        /* Valores dos KPIs - A cor do número é definida inline no HTML (Red/Blue) 
-           mas definimos o tamanho aqui */
         .kpi-value {{
             font-size: clamp(1.6rem, 6vw, 3rem);
             font-weight: 700;
             margin-top: 5px;
-        }}
-
-        /* Melhoria nos botões */
-        .stButton button {{
-            border-radius: 8px;
-            font-weight: 600;
-            transition: transform 0.1s;
-        }}
-        .stButton button:active {{
-            transform: scale(0.98);
+            /* A cor do número é definida no HTML da página (Vermelho ou Azul) */
         }}
     </style>
     """, unsafe_allow_html=True)
