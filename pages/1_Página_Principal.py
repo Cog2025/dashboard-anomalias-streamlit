@@ -113,7 +113,7 @@ meses_traducao = {
 }
 meses_cronologicos = list(meses_traducao.values())
 
-# --- 3. CSS ---
+# --- 3. CSS (Original, removendo apenas .kpi-card duplicado) ---
 st.markdown(
     """
 <style>
@@ -171,7 +171,8 @@ div[data-baseweb="select"] div{
   white-space:normal !important; overflow:visible !important; text-overflow:clip !important;
 }
 
-/* cards de detalhe (vermelhos) */
+/* KPIs removidos daqui pois vêm do utils.py agora */
+
 .card-container{
   background:#FF4B4B; color:#fff; padding:clamp(12px, 3vw, 16px); border-radius:8px;
   box-shadow:0 4px 8px rgba(0,0,0,.2); word-wrap:break-word;
@@ -200,8 +201,7 @@ h1{
   }
 }
 
-/* Em meia tela ou menor, empilhar colunas que contenham botões
-   (Sel. Todos / Desmarcar ficam um embaixo do outro) */
+/* Em meia tela ou menor, empilhar colunas que contenham botões */
 @media (max-width:1100px){
   [data-testid="stHorizontalBlock"] > div:has(.stButton){
     flex-basis:100% !important;
@@ -226,7 +226,6 @@ st.markdown(
 )
 
 # --- 4. Carregar e Tratar os Dados ---
-
 
 @st.cache_data(ttl=600)
 def carregar_dados_google_sheets(cache_buster: int = 0):

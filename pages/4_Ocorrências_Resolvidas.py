@@ -107,7 +107,7 @@ meses_traducao = {
 }
 meses_cronologicos = list(meses_traducao.values())
 
-# --- 3. CSS (Original, removido apenas o background fixo do kpi-card) ---
+# --- 3. CSS (Removido .kpi-card duplicado) ---
 st.markdown(
     """
 <style>
@@ -165,18 +165,8 @@ div[data-baseweb="select"] div{
   white-space:normal !important; overflow:visible !important; text-overflow:clip !important;
 }
 
-/* KPIs e cards – cores específicas da página 4 */
-.kpi-card{
-  /* background removido para usar o do utils.py */
-  padding:clamp(12px, 3vw, 20px); border-radius:10px; text-align:center;
-}
-.kpi-value{
-  font-size:clamp(1.6rem, 6vw, 3rem); font-weight:700; color:#4B4EFF;
-}
-.kpi-label{
-  font-size:clamp(.85rem, 2.5vw, 1rem); 
-  /* color:#fff; removido para usar variável de tema */
-}
+/* KPIs removidos daqui pois vêm do utils.py agora */
+
 .card-container{
   background:#089641; color:#fff; padding:clamp(12px, 3vw, 16px); border-radius:8px;
   box-shadow:0 4px 8px rgba(0,0,0,.2); word-wrap:break-word;
@@ -444,29 +434,8 @@ if "ui_filtros_ocorrencias" not in st.session_state:
 
 
 col_kpi1, col_kpi2 = st.columns(2)
-with col_kpi1:
-    total_resolvidas_banco = df[~df["Normalização"].isna()].shape[0]
-    st.markdown(
-        f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Total Resolvidas no Banco Completo</div>
-        <div class="kpi-value" style="color: #4B4EFF;">{total_resolvidas_banco}</div>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-
-with col_kpi2:
-    st.markdown(
-        f"""
-        <div class="kpi-card">
-            <div class="kpi-label">Total Resolvidas com Filtro</div>
-            <div class="kpi-value" style="color: #4B4EFF;">{len(df_resolvidas)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
+# KPI1 (Total Banco) será renderizado aqui, mas precisamos calcular primeiro.
+# KPI2 (Total Filtro) também.
 
 # Botão atualizar
 col_left, _ = st.columns([0.2, 0.8])
@@ -958,20 +927,19 @@ if st.session_state.ui_phase == "loading":
     st.session_state.loading_ts = 0
     utils.render_loading_overlay("ready")
 
-# KPI 1 - Total no Banco
+# [CORREÇÃO: KPIs Inferiores (Filtradas) renderizados APÓS o cálculo]
 with col_kpi1:
     total_resolvidas_banco = df[~df["Normalização"].isna()].shape[0]
     st.markdown(
         f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Total Resolvidas no Banco Completo</div>
-        <div class="kpi-value" style="color: #4B4EFF;">{total_resolvidas_banco}</div>
-    </div>
-    """,
+        <div class="kpi-card">
+            <div class="kpi-label">Total Resolvidas no Banco Completo</div>
+            <div class="kpi-value" style="color: #4B4EFF;">{total_resolvidas_banco}</div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
-# KPI 2 - Total com Filtro
 with col_kpi2:
     st.markdown(
         f"""
