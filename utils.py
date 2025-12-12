@@ -44,80 +44,117 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (CORRIGIDO: BARRA SUPERIOR ESCURA) ---
+# --- CSS E TEMA (CORRIGIDO: Contraste dos Inputs no Modo Escuro) ---
 def render_page_config_and_css():
+    """
+    Injeta o CSS dinâmico e controla o tema visual com persistência manual.
+    """
     st.sidebar.markdown("### 🎨 Visual")
     
     opcoes = ["Automático (Claro/Escuro)", "Sempre Escuro"]
     
+    # 1. Inicializa a memória do tema se ela não existir
     if "tema_escolhido" not in st.session_state:
         st.session_state.tema_escolhido = opcoes[0]
 
+    # 2. Descobre qual o índice da opção salva na memória
     try:
         index_atual = opcoes.index(st.session_state.tema_escolhido)
     except ValueError:
         index_atual = 0
 
+    # 3. Função para atualizar a memória quando o usuário clicar
     def atualizar_tema():
         st.session_state.tema_escolhido = st.session_state.key_radio_tema
 
+    # 4. Renderiza o botão usando o índice da memória
     tema_cards = st.sidebar.radio(
         "Fundo dos Indicadores:",
         options=opcoes,
-        index=index_atual,
-        key="key_radio_tema",
-        on_change=atualizar_tema
+        index=index_atual,       
+        key="key_radio_tema",    
+        on_change=atualizar_tema 
     )
 
     global_dark_override = ""
     
+    # Lógica de cores baseada na escolha
     if tema_cards == "Sempre Escuro":
         kpi_bg = "#333333"
         kpi_text = "#FFFFFF"
         kpi_border = "none"
         
-        # Adicionado regra para o Header (barra superior)
+        # CSS EXTENDIDO: Força modo escuro em todo o app e CORRIGE INPUTS
         global_dark_override = """
         <style>
-            /* Fundo e texto base */
+            /* 1. Fundo e texto base da aplicação */
             .stApp {
                 background-color: #0E1117 !important;
                 color: #FAFAFA !important;
             }
-            /* Barra Lateral */
-            [data-testid="stSidebar"] {
+            
+            /* 2. Fundo da Barra Lateral e Header */
+            [data-testid="stSidebar"], header[data-testid="stHeader"] {
                 background-color: #262730 !important;
-            }
-            /* BARRA SUPERIOR (HEADER) */
-            header[data-testid="stHeader"] {
-                background-color: #0E1117 !important;
             }
             
-            /* Textos da Sidebar */
-            [data-testid="stSidebar"] *, [data-testid="stSidebar"] a, 
-            [data-testid="stSidebar"] span, [data-testid="stSidebar"] p, 
-            [data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] span {
+            /* 3. Textos Gerais e Links (Branco) */
+            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label,
+            [data-testid="stSidebar"] *, [data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] span {
                 color: #FAFAFA !important;
             }
-            /* Textos gerais */
-            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label {
-                color: #FAFAFA !important;
-            }
-            /* Inputs */
-            .stTextInput > div > div, .stSelectbox > div > div, .stMultiSelect > div > div, .stTextArea > div > div {
+
+            /* 4. INPUTS: Texto, Número, Data, Hora, Área de Texto */
+            .stTextInput input, .stNumberInput input, .stDateInput input, .stTimeInput input, .stTextArea textarea {
                 background-color: #262730 !important;
+                color: #FAFAFA !important;
+                border-color: #4A4A4A !important;
+            }
+            
+            /* 5. DROPDOWNS (Selectbox/MultiSelect) - O Container */
+            div[data-baseweb="select"] > div {
+                background-color: #262730 !important;
+                color: #FAFAFA !important;
+                border-color: #4A4A4A !important;
+            }
+            /* Texto e Ícones dentro do Selectbox */
+            div[data-baseweb="select"] span, div[data-baseweb="select"] svg {
+                color: #FAFAFA !important;
+                fill: #FAFAFA !important;
+            }
+            
+            /* 6. MENU SUSPENSO (As opções que abrem ao clicar) */
+            ul[data-baseweb="menu"] {
+                background-color: #262730 !important;
+            }
+            li[data-baseweb="option"] {
+                color: #FAFAFA !important;
+                background-color: #262730 !important;
+            }
+            /* Item selecionado ou hover no menu */
+            li[data-baseweb="option"]:hover, li[aria-selected="true"] {
+                background-color: #FF4B4B !important;
                 color: white !important;
+            }
+
+            /* 7. Placeholders (Texto de ajuda cinza claro) */
+            ::placeholder {
+                color: #d0d0d0 !important;
+                opacity: 1 !important;
             }
         </style>
         """
     else:
+        # Modo Automático
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
 
+    # Injeta o CSS Global
     if global_dark_override:
         st.markdown(global_dark_override, unsafe_allow_html=True)
 
+    # Injeta o CSS dos Cards KPI
     st.markdown(f"""
     <style>
         .kpi-card {{
