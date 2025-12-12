@@ -6,10 +6,13 @@ import time as pytime
 import gspread
 from google.oauth2.service_account import Credentials
 import html
-import utils # [MODIFICADO]
+import utils
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(layout="wide")
+
+# [NOVO] Garante persistência do tema e aplica CSS global
+utils.render_page_config_and_css()
 
 # Estado mínimo do overlay
 if 'ui_phase' not in st.session_state:
@@ -17,7 +20,6 @@ if 'ui_phase' not in st.session_state:
 if 'loading_ts' not in st.session_state:
     st.session_state.loading_ts = 0
 
-# [MODIFICADO] Utils
 utils.render_loading_overlay(st.session_state.ui_phase)
 
 def overlay_on():
@@ -30,7 +32,6 @@ def overlay_off():
     st.session_state.loading_ts = 0
     utils.render_loading_overlay('ready')
 
-# Injeta CSS do overlay em estado pronto
 utils.render_loading_overlay('ready')
 
 # CSS dos Cards
@@ -93,7 +94,6 @@ MAPA_RENOMEAR = {
 @st.cache_data(ttl=60)
 def carregar_dados_completos():
     try:
-        # [MODIFICADO] Utils
         client = utils.connect_to_google_sheets()
         workbook = client.open_by_url(utils.SPREADSHEET_URL)
         df_desligamentos = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_DESLIGAMENTOS))
@@ -158,7 +158,7 @@ def split_datetime(dt_obj):
     return None, None
 
 # --- 3. INTERFACE DO STREAMLIT ---
-utils.render_loading_overlay('loading')
+overlay_on()
 
 def _stop_with_overlay_off(msg: str | None = None, kind: str = "warning"):
     if msg:

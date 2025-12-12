@@ -7,10 +7,13 @@ import time as pytime
 import gspread
 from google.oauth2.service_account import Credentials
 import re
-import utils  # [MODIFICADO]
+import utils
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA E CSS ---
 st.set_page_config(layout="wide")
+
+# [NOVO] Garante persistência do tema e aplica CSS global
+utils.render_page_config_and_css()
 
 # Estado mínimo para o overlay
 if 'ui_phase' not in st.session_state:
@@ -18,7 +21,6 @@ if 'ui_phase' not in st.session_state:
 if 'loading_ts' not in st.session_state:
     st.session_state.loading_ts = 0
 
-# [MODIFICADO] Usando utils
 utils.render_loading_overlay(st.session_state.ui_phase)
 
 def overlay_on():
@@ -31,7 +33,6 @@ def overlay_off():
     st.session_state.loading_ts = 0
     utils.render_loading_overlay('ready')
 
-# Injeta CSS do overlay em estado pronto
 utils.render_loading_overlay('ready')
 
 st.title("Adicionar Nova Ocorrência")
@@ -77,7 +78,6 @@ def format_datetime_card(dt_obj):
 @st.cache_data(ttl=60)
 def carregar_dados_e_opcoes():
     try:
-        # [MODIFICADO] Usando utils
         client = utils.connect_to_google_sheets()
         workbook = client.open_by_url(utils.SPREADSHEET_URL)
         df_dados = utils.fetch_sheet_as_df(workbook.worksheet(utils.SHEET_DADOS)).fillna('')
@@ -90,7 +90,6 @@ def carregar_dados_e_opcoes():
             if df_detalhado[col].dtype == 'object':
                 df_detalhado[col] = df_detalhado[col].str.strip()
 
-        # Mantendo o traço "-" para evitar pré-seleção
         op_cliente = ['-'] + sorted(df_dados[df_dados['CLIENTE'] != '']['CLIENTE'].unique().tolist())
         op_ocorrencia = ['-'] + sorted(df_dados[df_dados['OCORRÊNCIA'] != '']['OCORRÊNCIA'].unique().tolist())
         op_tipo = ['-'] + sorted(df_dados[df_dados['TIPO DE OCORRÊNCIA'] != '']['TIPO DE OCORRÊNCIA'].unique().tolist())
@@ -110,7 +109,6 @@ def carregar_dados_e_opcoes():
 # --- 3. INTERFACE DO STREAMLIT ---
 overlay_on()
 
-# Helper para parar com overlay desligado e mensagem
 def _stop_with_overlay_off(msg: str | None = None, kind: str = "warning"):
     if msg:
         (st.warning if kind == "warning" else st.error if kind == "error" else st.info)(msg)
@@ -119,7 +117,6 @@ def _stop_with_overlay_off(msg: str | None = None, kind: str = "warning"):
 
 try:
     dados_e_opcoes = carregar_dados_e_opcoes()
-    # --- 3. PÓS-ENVIO: cards de confirmação ---
     def _get(details: dict, aliases: list[str]):
         for k in aliases:
             v = details.get(k)
@@ -134,7 +131,6 @@ try:
         except Exception:
             return '', ''
     
-    # Render de cards de sucesso (após rerun)
     if 'last_submission_details' in st.session_state and st.session_state.last_submission_details:
         submitted_occurrences = st.session_state.last_submission_details
         st.success(f"{len(submitted_occurrences)} ocorrência(s) adicionada(s) com sucesso!")
@@ -197,7 +193,6 @@ try:
                     <div class="card-item"><span class="card-label">OS:</span> {os_code}</div>
                     </div>
                     """, unsafe_allow_html=True)
-            # depois de renderizar os cards de sucesso
             del st.session_state['last_submission_details']
             st.session_state.form_reset_counter = st.session_state.get('form_reset_counter', 0) + 1
     if not dados_e_opcoes:
@@ -210,7 +205,6 @@ try:
         st.session_state.form_reset_counter = 0
     reset_counter = st.session_state.form_reset_counter
 
-    # Seleção de categoria (validação só DEPOIS do selectbox)
     categoria_selecionada = st.selectbox(
         "Selecione a Categoria da Ocorrência",
         options=[utils.SHEET_DESLIGAMENTOS, utils.SHEET_EQUIPAMENTOS],
@@ -333,7 +327,6 @@ try:
     st.markdown("---")
     if st.button('Adicionar Ocorrência', type="primary", use_container_width=True):
 
-        # --- VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS ---
         campos_obrigatorios = {
             'Cliente': st.session_state.get(f'cliente_select_{reset_counter}'),
             'Tipo de Ocorrência': st.session_state.get(f'tipo_ocorrencia_{reset_counter}'),
@@ -355,7 +348,6 @@ try:
         if erros:
             st.error(f"⚠️ Por favor, preencha os seguintes campos obrigatórios antes de salvar: {', '.join(erros)}")
         else:
-            # --- SE PASSOU NA VALIDAÇÃO, PROSEGUE COM SALVAMENTO ---
             def find_ug_for_ativo(ativo_nome, df_detalhado_cache, ugs_filtradas):
                 df_filtrado = df_detalhado_cache[df_detalhado_cache['Usina'].isin(ugs_filtradas)]
                 for col_name in ['Inversor Conectado', 'Tracker Conectado', 'Nome String']:
@@ -424,7 +416,6 @@ try:
 
             if not erro_encontrado and ocorrencias_para_salvar:
                 try:
-                    # [MODIFICADO] Usando utils
                     client = utils.connect_to_google_sheets()
                     workbook = client.open_by_url(utils.SPREADSHEET_URL)
                     worksheet = workbook.worksheet(st.session_state.get(f'categoria_selecionada_{reset_counter}'))

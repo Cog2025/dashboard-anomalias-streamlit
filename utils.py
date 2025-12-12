@@ -44,90 +44,80 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (CORRIGIDO: Persistência Robusta + Links) ---
+# --- CSS E TEMA (CORRIGIDO: BARRA SUPERIOR ESCURA) ---
 def render_page_config_and_css():
-    """
-    Injeta o CSS dinâmico e controla o tema visual com persistência manual.
-    """
     st.sidebar.markdown("### 🎨 Visual")
     
-    # Opções do menu
     opcoes = ["Automático (Claro/Escuro)", "Sempre Escuro"]
     
-    # 1. Inicializa a memória do tema se ela não existir
     if "tema_escolhido" not in st.session_state:
         st.session_state.tema_escolhido = opcoes[0]
 
-    # 2. Descobre qual o índice da opção salva na memória
     try:
         index_atual = opcoes.index(st.session_state.tema_escolhido)
     except ValueError:
         index_atual = 0
 
-    # 3. Função para atualizar a memória quando o usuário clicar
     def atualizar_tema():
         st.session_state.tema_escolhido = st.session_state.key_radio_tema
 
-    # 4. Renderiza o botão usando o índice da memória
     tema_cards = st.sidebar.radio(
         "Fundo dos Indicadores:",
         options=opcoes,
-        index=index_atual,       # Força a seleção correta ao carregar a página
-        key="key_radio_tema",    # Chave única do widget
-        on_change=atualizar_tema # Salva a escolha imediatamente
+        index=index_atual,
+        key="key_radio_tema",
+        on_change=atualizar_tema
     )
 
     global_dark_override = ""
     
-    # Lógica de cores baseada na escolha (tema_cards)
     if tema_cards == "Sempre Escuro":
         kpi_bg = "#333333"
         kpi_text = "#FFFFFF"
         kpi_border = "none"
         
-        # CSS para forçar modo escuro e corrigir links/textos
+        # Adicionado regra para o Header (barra superior)
         global_dark_override = """
         <style>
-            /* Fundo e texto base da aplicação */
+            /* Fundo e texto base */
             .stApp {
                 background-color: #0E1117 !important;
                 color: #FAFAFA !important;
             }
-            
-            /* Fundo da Barra Lateral */
+            /* Barra Lateral */
             [data-testid="stSidebar"] {
                 background-color: #262730 !important;
             }
+            /* BARRA SUPERIOR (HEADER) */
+            header[data-testid="stHeader"] {
+                background-color: #0E1117 !important;
+            }
             
-            /* Força cor BRANCA em todos os elementos da Sidebar e textos gerais */
-            [data-testid="stSidebar"] *, 
-            [data-testid="stSidebar"] a, 
-            [data-testid="stSidebar"] span, 
-            [data-testid="stSidebar"] p, 
-            [data-testid="stSidebarNav"] a,
-            [data-testid="stSidebarNav"] span,
+            /* Textos da Sidebar */
+            [data-testid="stSidebar"] *, [data-testid="stSidebar"] a, 
+            [data-testid="stSidebar"] span, [data-testid="stSidebar"] p, 
+            [data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] span {
+                color: #FAFAFA !important;
+            }
+            /* Textos gerais */
             h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label {
                 color: #FAFAFA !important;
             }
-            
-            /* Inputs para não ficarem brancos no fundo branco */
-            .stTextInput > div > div, .stSelectbox > div > div, .stMultiSelect > div > div {
+            /* Inputs */
+            .stTextInput > div > div, .stSelectbox > div > div, .stMultiSelect > div > div, .stTextArea > div > div {
                 background-color: #262730 !important;
                 color: white !important;
             }
         </style>
         """
     else:
-        # Modo Automático
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
 
-    # Injeta o CSS Global
     if global_dark_override:
         st.markdown(global_dark_override, unsafe_allow_html=True)
 
-    # Injeta o CSS dos Cards KPI
     st.markdown(f"""
     <style>
         .kpi-card {{
