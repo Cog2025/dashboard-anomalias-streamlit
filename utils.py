@@ -153,6 +153,8 @@ button[data-testid="collapsedControl"]{
   border: 1px solid rgba(255,255,255,.35) !important;
   border-radius: 8px !important;
   box-shadow: 0 2px 10px rgba(0,0,0,.35) !important;
+
+  color: #FFFFFF !important; /* importante: alguns SVG usam currentColor */
 }
 
 /* Controle quando sidebar está aberta (varia por versão) */
@@ -168,15 +170,27 @@ header button[kind="header"]{
   border: 1px solid rgba(255,255,255,.35) !important;
   border-radius: 8px !important;
   box-shadow: 0 2px 10px rgba(0,0,0,.35) !important;
+
+  color: #FFFFFF !important;
 }
 
-/* Ícone sempre visível */
+/* Ícone: força fill/color/stroke no svg */
 button[data-testid="collapsedControl"] svg,
 button[data-testid="stSidebarCollapseButton"] svg,
 section[data-testid="stSidebar"] button[kind="header"] svg,
 header button[kind="header"] svg{
   fill: #FFFFFF !important;
   color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
+}
+
+/* Ícone: força também em path/g/* (muitos temas sobrescrevem aqui) */
+button[data-testid="collapsedControl"] svg * ,
+button[data-testid="stSidebarCollapseButton"] svg * ,
+section[data-testid="stSidebar"] button[kind="header"] svg * ,
+header button[kind="header"] svg * {
+  fill: #FFFFFF !important;
+  stroke: #FFFFFF !important;
 }
 </style>
 """,
