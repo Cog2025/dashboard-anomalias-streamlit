@@ -1,13 +1,14 @@
-import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
-import pandas as pd
-import time as pytime
 import os
 import re
+import time as pytime
+
+import gspread
+import pandas as pd
+import streamlit as st
+from google.oauth2.service_account import Credentials
 
 # =========================================================
-# CONSTANTES (mantém dois padrões de nomes p/ compatibilidade)
+# CONSTANTES (com aliases p/ compatibilidade com suas páginas)
 # =========================================================
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -16,7 +17,9 @@ SCOPES = [
 
 CREDS_FILE = "google_credentials.json"
 
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
+SPREADSHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
+)
 SPREADSHEETURL = SPREADSHEET_URL  # compat
 
 SHEET_DESLIGAMENTOS = "DESLIGAMENTOS"
@@ -25,9 +28,9 @@ SHEET_DADOS = "DADOS"
 SHEET_DETALHADA = "Usinas_Detalhado"
 
 SHEETDESLIGAMENTOS = SHEET_DESLIGAMENTOS  # compat
-SHEETEQUIPAMENTOS = SHEET_EQUIPAMENTOS    # compat
-SHEETDADOS = SHEET_DADOS                  # compat
-SHEETDETALHADA = SHEET_DETALHADA          # compat
+SHEETEQUIPAMENTOS = SHEET_EQUIPAMENTOS  # compat
+SHEETDADOS = SHEET_DADOS  # compat
+SHEETDETALHADA = SHEET_DETALHADA  # compat
 
 
 # =========================================================
@@ -35,9 +38,6 @@ SHEETDETALHADA = SHEET_DETALHADA          # compat
 # =========================================================
 @st.cache_resource(ttl=600)
 def connect_to_google_sheets():
-    """
-    Conecta no Google Sheets via Service Account.
-    """
     if "gcp_service_account" in st.secrets:
         creds_dict = dict(st.secrets["gcp_service_account"])
         creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
@@ -47,8 +47,7 @@ def connect_to_google_sheets():
         st.error("Credenciais não encontradas.")
         return None
 
-    client = gspread.authorize(creds)
-    return client
+    return gspread.authorize(creds)
 
 
 def fetch_sheet_as_df(worksheet):
@@ -59,7 +58,7 @@ def fetch_sheet_as_df(worksheet):
     return pd.DataFrame(data, columns=headers)
 
 
-# Aliases compat (nomes antigos usados nas páginas)
+# Aliases compat (nomes usados nas páginas)
 def connecttogooglesheets():
     return connect_to_google_sheets()
 
@@ -80,23 +79,91 @@ def sanitizekey(text):
 
 
 # =========================================================
-# CSS / TEMA (inclui correções de dropdown, expander e checkbox)
+# CSS / TEMA
 # =========================================================
+def _inject_common_css():
+    """
+    CSS que deve valer no tema claro e escuro (grid dias + toggle sidebar).
+    """
+    st.markdown(
+        """
+<style>
+/* =========================================================
+   1) GRID DE DIAS (checkboxes) - evita "número quebrado" (2 dígitos)
+   ========================================================= */
+
+/* BaseWeb checkbox é mais estável entre versões */
+div[data-testid="stExpander"] label[data-baseweb="checkbox"]{
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+}
+
+/* Texto do label (dia): mantém em uma linha e com largura mínima */
+div[data-testid="stExpander"] label[data-baseweb="checkbox"] > div:last-child,
+div[data-testid="stExpander"] label[data-baseweb="checkbox"] > span:last-child{
+  min-width: 2.6ch !important;          /* suficiente p/ 10..31 */
+  text-align: center !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* Compacta checkboxes dentro do expander */
+div[data-testid="stExpander"] div[data-testid="stCheckbox"]{
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* =========================================================
+   2) BOTÃO DE COLAPSAR/EXPANDIR SIDEBAR - sempre visível
+   ========================================================= */
+
+/* Controle flutuante quando sidebar está recolhida */
+button[data-testid="collapsedControl"]{
+  opacity: 1 !important;
+  visibility: visible !important;
+  background: rgba(38,39,48,.92) !important;
+  border: 1px solid rgba(255,255,255,.35) !important;
+  border-radius: 8px !important;
+}
+
+/* Controle quando sidebar está aberta (varia por versão) */
+button[data-testid="stSidebarCollapseButton"],
+section[data-testid="stSidebar"] button[kind="header"],
+header button[kind="header"]{
+  opacity: 1 !important;
+  visibility: visible !important;
+  background: rgba(38,39,48,.92) !important;
+  border: 1px solid rgba(255,255,255,.35) !important;
+  border-radius: 8px !important;
+}
+
+/* Ícone sempre visível */
+button[data-testid="collapsedControl"] svg,
+button[data-testid="stSidebarCollapseButton"] svg,
+section[data-testid="stSidebar"] button[kind="header"] svg,
+header button[kind="header"] svg{
+  fill: #FFFFFF !important;
+  color: #FFFFFF !important;
+}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
 def render_page_config_and_css():
     """
     Injeta CSS e controla tema (Automático / Sempre Escuro) via sidebar.
     """
     st.sidebar.markdown("### 🎨 Visual")
-
     opcoes = ["Automático (Claro/Escuro)", "Sempre Escuro"]
 
-    # Compat de estado (aceita chaves antigas e novas)
+    # Compat de estado (algumas páginas usam 'temaescolhido')
     if "tema_escolhido" not in st.session_state:
-        if "temaescolhido" in st.session_state:
-            st.session_state.tema_escolhido = st.session_state.temaescolhido
-        else:
-            st.session_state.tema_escolhido = opcoes[0]
-    st.session_state.temaescolhido = st.session_state.tema_escolhido  # compat
+        st.session_state.tema_escolhido = st.session_state.get("temaescolhido", opcoes[0])
+    st.session_state.temaescolhido = st.session_state.tema_escolhido
 
     try:
         index_atual = opcoes.index(st.session_state.tema_escolhido)
@@ -104,7 +171,6 @@ def render_page_config_and_css():
         index_atual = 0
 
     def atualizar_tema():
-        # salva nos dois formatos
         st.session_state.tema_escolhido = st.session_state.key_radio_tema
         st.session_state.temaescolhido = st.session_state.tema_escolhido
 
@@ -115,6 +181,9 @@ def render_page_config_and_css():
         key="key_radio_tema",
         on_change=atualizar_tema,
     )
+
+    # CSS comum (claro + escuro)
+    _inject_common_css()
 
     global_dark_override = ""
 
@@ -132,11 +201,9 @@ def render_page_config_and_css():
           background-color: #0E1117 !important;
           color: #FAFAFA !important;
         }
-
         section[data-testid="stSidebar"], header[data-testid="stHeader"] {
           background-color: #262730 !important;
         }
-
         h1, h2, h3, h4, h5, h6, p, li, label,
         .stMarkdown, .stRadio label, .stCheckbox label,
         section[data-testid="stSidebar"] *,
@@ -145,7 +212,7 @@ def render_page_config_and_css():
         }
 
         /* =========================================================
-           Inputs (text/number/date/time/textarea)
+           Inputs
            ========================================================= */
         .stTextInput input,
         .stNumberInput input,
@@ -156,7 +223,6 @@ def render_page_config_and_css():
           color: #FAFAFA !important;
           border: 1px solid #4A4A4A !important;
         }
-
         input::placeholder,
         textarea::placeholder {
           color: #A0A0A0 !important;
@@ -165,7 +231,6 @@ def render_page_config_and_css():
 
         /* =========================================================
            DROPDOWNS (Selectbox / Multiselect) - BaseWeb
-           (corrige contraste da lista aberta e opções)
            ========================================================= */
 
         /* Caixa do select (fechado) */
@@ -177,7 +242,7 @@ def render_page_config_and_css():
           color: #FAFAFA !important;
         }
 
-        /* Popover/lista (aberto): cobre variações do BaseWeb */
+        /* Popover/lista (aberto) */
         div[data-baseweb="popover"],
         div[data-baseweb="popover"] *,
         ul[data-baseweb="menu"],
@@ -189,15 +254,13 @@ def render_page_config_and_css():
           border-color: #4A4A4A !important;
         }
 
-        /* Opções: cobre li e div + role option */
+        /* Opções */
         li[data-baseweb="option"],
         div[data-baseweb="option"],
         div[role="option"]{
           background-color: #262730 !important;
           color: #FAFAFA !important;
         }
-
-        /* Texto interno das opções */
         li[data-baseweb="option"] *,
         div[data-baseweb="option"] *,
         div[role="option"] *{
@@ -238,53 +301,27 @@ def render_page_config_and_css():
         }
 
         /* =========================================================
-           EXPANDERS (corrige "Expandir anos/meses/dias" branco)
+           EXPANDERS (corrige "Expandir ..." e fundo interno)
            ========================================================= */
-
-        /* Cabeçalho do expander */
         div[data-testid="stExpander"] details > summary {
           background-color: #262730 !important;
           border: 1px solid #4A4A4A !important;
           border-radius: 8px !important;
         }
-
-        /* Texto do cabeçalho */
         div[data-testid="stExpander"] details > summary,
         div[data-testid="stExpander"] details > summary * {
           color: #FAFAFA !important;
         }
-
-        /* Conteúdo aberto */
         div[data-testid="stExpander"] div[role="region"] {
           background-color: #0E1117 !important;
           border: 1px solid #4A4A4A !important;
           border-radius: 8px !important;
           padding: 10px 12px !important;
         }
-
-        /* =========================================================
-           CHECKBOX (melhora layout do grid de dias)
-           ========================================================= */
-
-        /* Evita o label do checkbox empurrar o texto p/ direita */
-        div[data-testid="stExpander"] div[data-testid="stCheckbox"] label {
-          justify-content: flex-start !important;
-          gap: .4rem !important;
-        }
-
-        /* Compacta */
-        div[data-testid="stExpander"] div[data-testid="stCheckbox"] {
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-        div[data-testid="stExpander"] div[data-testid="stCheckbox"] label span {
-          font-size: 0.95rem !important;
-          line-height: 1.1 !important;
-          white-space: nowrap !important;
-        }
         </style>
         """
     else:
+        # Modo Automático (claro/escuro do Streamlit)
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
@@ -292,7 +329,7 @@ def render_page_config_and_css():
     if global_dark_override:
         st.markdown(global_dark_override, unsafe_allow_html=True)
 
-    # CSS dos Cards KPI (usado nas páginas)
+    # CSS dos Cards KPI
     st.markdown(
         f"""
     <style>
@@ -321,7 +358,7 @@ def render_page_config_and_css():
     )
 
 
-# Alias compat (nome antigo usado nas páginas)
+# Alias compat
 def renderpageconfigandcss():
     return render_page_config_and_css()
 
@@ -338,6 +375,7 @@ def render_loading_overlay(ui_phase: str | None = None):
         or "ready"
     )
     display = "flex" if phase == "loading" else "none"
+
     st.markdown(
         f"""
     <style>
@@ -367,6 +405,7 @@ def render_loading_overlay(ui_phase: str | None = None):
 
 
 def overlay_on():
+    # compat: escreve nos dois formatos usados no projeto
     st.session_state.uiphase = "loading"
     st.session_state.loadingts = pytime.time()
     st.session_state.ui_phase = "loading"
@@ -382,7 +421,7 @@ def overlay_off():
     render_loading_overlay("ready")
 
 
-# Aliases compat (nomes antigos usados nas páginas)
+# Aliases compat
 def renderloadingoverlay(ui_phase: str | None = None):
     return render_loading_overlay(ui_phase)
 
