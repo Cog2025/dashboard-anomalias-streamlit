@@ -84,15 +84,15 @@ def sanitizekey(text):
 # =========================================================
 def _inject_common_css():
     """
-    CSS que vale no tema claro e escuro.
-    IMPORTANTE: o toggle da sidebar (setinha) no Streamlit Cloud pode ser
-    um <span data-testid="stIconMaterial"> (Material Symbols), não SVG.
+    CSS comum (claro/escuro) + toggle sidebar sempre visível.
+    Observação: no Streamlit Cloud o toggle usa Material Symbols:
+      span[data-testid="stIconMaterial"] (texto: keyboard_double_arrow_left)
     """
     st.markdown(
         """
 <style>
 /* =========================================================
-   0) NÚMERO DO DIA (checkbox sem label)
+   0) NÚMERO DO DIA (quando checkbox está sem label)
    ========================================================= */
 .day-num{
   width: 100%;
@@ -106,7 +106,7 @@ def _inject_common_css():
 }
 
 /* =========================================================
-   1) GRID DE DIAS (checkboxes) - (não atrapalha com checkbox sem label)
+   1) GRID DE DIAS (checkboxes)
    ========================================================= */
 div[data-testid="stExpander"] div[data-testid="stCheckbox"]{
   margin: 0 !important;
@@ -114,46 +114,40 @@ div[data-testid="stExpander"] div[data-testid="stCheckbox"]{
 }
 
 /* =========================================================
-   2) TOGGLE DA SIDEBAR (SETINHA) - SEMPRE VISÍVEL
-   ---------------------------------------------------------
-   A estratégia aqui é:
-   - forçar opacidade/visibilidade no(s) botões
-   - forçar também no ícone Material (stIconMaterial)
-   - usar variáveis --sb_toggle_* para cores (claro/escuro)
+   2) TOGGLE DA SIDEBAR - SEMPRE VISÍVEL (SEM HOVER)
    ========================================================= */
 
 /* Variáveis padrão (Automático) */
 :root{
   --sb_toggle_bg: rgba(255,255,255,.96);
   --sb_toggle_border: rgba(0,0,0,.30);
-  --sb_toggle_fg: #111111;
+  --sb_toggle_fg: rgba(49, 51, 63, 0.95); /* preto/escuro */
 }
 @media (prefers-color-scheme: dark){
   :root{
     --sb_toggle_bg: rgba(38,39,48,.96);
     --sb_toggle_border: rgba(255,255,255,.60);
-    --sb_toggle_fg: #FFFFFF;
+    --sb_toggle_fg: rgba(250, 250, 250, 0.95); /* branco */
   }
 }
 
-/* Wrapper do controle recolhido (muito comum no Cloud) */
-div[data-testid="stSidebarCollapsedControl"],
-div[data-testid="stSidebarCollapsedControl"] *{
+/* ====== SIDEBAR EXPANDIDA ====== */
+/* Aqui o "stSidebarCollapseButton" é um DIV, não um button */
+section[data-testid="stSidebar"][aria-expanded="true"] div[data-testid="stSidebarHeader"],
+section[data-testid="stSidebar"][aria-expanded="true"] div[data-testid="stSidebarCollapseButton"]{
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
 }
 
-/* Alguns builds colocam o botão no header */
-header, header *{
-  overflow: visible !important;
+/* Garante que o container do botão exista e não dependa de hover */
+section[data-testid="stSidebar"][aria-expanded="true"] div[data-testid="stSidebarCollapseButton"]{
+  display: block !important;
 }
 
-/* Botões candidatos (expandido e recolhido) */
-button[data-testid="collapsedControl"],
-button[data-testid="stSidebarCollapseButton"],
-section[data-testid="stSidebar"] button[kind="header"],
-header button[kind="header"]{
+/* Estiliza o botão real dentro do DIV (stBaseButton-headerNoPadding) */
+section[data-testid="stSidebar"][aria-expanded="true"] div[data-testid="stSidebarCollapseButton"] button,
+section[data-testid="stSidebar"][aria-expanded="true"] div[data-testid="stSidebarCollapseButton"] button[data-testid="stBaseButton-headerNoPadding"]{
   display: inline-flex !important;
   opacity: 1 !important;
   visibility: visible !important;
@@ -165,27 +159,48 @@ header button[kind="header"]{
   border-radius: 10px !important;
   box-shadow: 0 2px 10px rgba(0,0,0,.25) !important;
 
-  /* Para casos em que o ícone herda do botão */
   color: var(--sb_toggle_fg) !important;
 }
 
-/* CASO REAL DO SEU PRINT: Material Symbol (não é SVG) */
+/* Ícone Material (o seu caso) */
+section[data-testid="stSidebar"][aria-expanded="true"] div[data-testid="stSidebarCollapseButton"] span[data-testid="stIconMaterial"],
+section[data-testid="stSidebar"][aria-expanded="true"] div[data-testid="stSidebarCollapseButton"] span{
+  opacity: 1 !important;
+  visibility: visible !important;
+  color: var(--sb_toggle_fg) !important;
+}
+
+/* ====== SIDEBAR RECOLHIDA ====== */
+/* Wrapper comum do controle recolhido */
+div[data-testid="stSidebarCollapsedControl"],
+div[data-testid="stSidebarCollapsedControl"] *{
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Botão flutuante quando recolhida */
+button[data-testid="collapsedControl"]{
+  display: inline-flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: 999999 !important;
+
+  background: var(--sb_toggle_bg) !important;
+  border: 1px solid var(--sb_toggle_border) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25) !important;
+
+  color: var(--sb_toggle_fg) !important;
+}
+
+/* Ícone Material do botão recolhido (se existir nesse modo) */
 button[data-testid="collapsedControl"] span[data-testid="stIconMaterial"],
-button[data-testid="stSidebarCollapseButton"] span[data-testid="stIconMaterial"],
-section[data-testid="stSidebar"] button[kind="header"] span[data-testid="stIconMaterial"],
-header button[kind="header"] span[data-testid="stIconMaterial"]{
+button[data-testid="collapsedControl"] span{
   opacity: 1 !important;
   visibility: visible !important;
-
-  /* Cor do glifo */
   color: var(--sb_toggle_fg) !important;
-}
-
-/* Extra: às vezes o Streamlit reduz o botão fora do hover via opacity em estados específicos */
-section[data-testid="stSidebar"] button[kind="header"]:not(:hover),
-header button[kind="header"]:not(:hover){
-  opacity: 1 !important;
-  visibility: visible !important;
 }
 </style>
 """,
@@ -222,8 +237,8 @@ def render_page_config_and_css():
         on_change=atualizar_tema,
     )
 
-    # Se usuário escolheu "Sempre Escuro", sobrescreve as vars do toggle
-    # (isso garante branco sempre, inclusive se o SO estiver em claro).
+    # Se o usuário escolheu "Sempre Escuro", força as variáveis do toggle para branco
+    # (isso garante branco mesmo se o SO estiver em modo claro).
     if tema_cards == "Sempre Escuro":
         st.markdown(
             """
@@ -231,14 +246,14 @@ def render_page_config_and_css():
 :root{
   --sb_toggle_bg: rgba(38,39,48,.96);
   --sb_toggle_border: rgba(255,255,255,.60);
-  --sb_toggle_fg: #FFFFFF;
+  --sb_toggle_fg: rgba(250, 250, 250, 0.95);
 }
 </style>
 """,
             unsafe_allow_html=True,
         )
 
-    # CSS comum (vale para ambos os temas)
+    # CSS comum (claro + escuro)
     _inject_common_css()
 
     global_dark_override = ""
@@ -250,9 +265,6 @@ def render_page_config_and_css():
 
         global_dark_override = """
         <style>
-        /* =========================================================
-           Base (fundo/texto)
-           ========================================================= */
         .stApp {
           background-color: #0E1117 !important;
           color: #FAFAFA !important;
@@ -267,9 +279,6 @@ def render_page_config_and_css():
           color: #FAFAFA !important;
         }
 
-        /* =========================================================
-           Inputs
-           ========================================================= */
         .stTextInput input,
         .stNumberInput input,
         .stDateInput input,
@@ -285,9 +294,6 @@ def render_page_config_and_css():
           opacity: 1 !important;
         }
 
-        /* =========================================================
-           DROPDOWNS (Selectbox / Multiselect) - BaseWeb
-           ========================================================= */
         div[data-baseweb="select"] > div{
           background-color: #262730 !important;
           border-color: #4A4A4A !important;
@@ -349,9 +355,6 @@ def render_page_config_and_css():
           color: #FFFFFF !important;
         }
 
-        /* =========================================================
-           EXPANDERS
-           ========================================================= */
         div[data-testid="stExpander"] details > summary {
           background-color: #262730 !important;
           border: 1px solid #4A4A4A !important;
@@ -370,7 +373,6 @@ def render_page_config_and_css():
         </style>
         """
     else:
-        # Modo Automático (claro/escuro do Streamlit)
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
@@ -406,7 +408,7 @@ def render_page_config_and_css():
         unsafe_allow_html=True,
     )
 
-    # Reaplica no FINAL para tentar vencer CSS posterior do Streamlit
+    # Reaplica no FINAL para vencer CSS posterior do Streamlit
     _inject_common_css()
 
 
