@@ -340,7 +340,7 @@ with st.container(border=True):
             f"""
         <div class="kpi-card">
             <div class="kpi-label">DESLIGAMENTOS</div>
-            <div class="kpi-value">{count_resolvidos_deslig}</div>
+            <div class="kpi-value" style="color: #4B4EFF;">{count_resolvidos_deslig}</div>
         </div>
         """,
             unsafe_allow_html=True,
@@ -350,7 +350,7 @@ with st.container(border=True):
             f"""
         <div class="kpi-card">
             <div class="kpi-label">EQUIPAMENTOS</div>
-            <div class="kpi-value">{count_resolvidos_equip}</div>
+            <div class="kpi-value" style="color: #4B4EFF;">{count_resolvidos_equip}</div>
         </div>
         """,
             unsafe_allow_html=True,
@@ -450,9 +450,20 @@ with col_kpi1:
         f"""
     <div class="kpi-card">
         <div class="kpi-label">Total Resolvidas no Banco Completo</div>
-        <div class="kpi-value">{total_resolvidas_banco}</div>
+        <div class="kpi-value" style="color: #4B4EFF;">{total_resolvidas_banco}</div>
     </div>
     """,
+        unsafe_allow_html=True,
+    )
+
+with col_kpi2:
+    st.markdown(
+        f"""
+        <div class="kpi-card">
+            <div class="kpi-label">Total Resolvidas com Filtro</div>
+            <div class="kpi-value" style="color: #4B4EFF;">{len(df_resolvidas)}</div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -947,12 +958,26 @@ if st.session_state.ui_phase == "loading":
     st.session_state.loading_ts = 0
     utils.render_loading_overlay("ready")
 
+# KPI 1 - Total no Banco
+with col_kpi1:
+    total_resolvidas_banco = df[~df["Normalização"].isna()].shape[0]
+    st.markdown(
+        f"""
+    <div class="kpi-card">
+        <div class="kpi-label">Total Resolvidas no Banco Completo</div>
+        <div class="kpi-value" style="color: #4B4EFF;">{total_resolvidas_banco}</div>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+# KPI 2 - Total com Filtro
 with col_kpi2:
     st.markdown(
         f"""
         <div class="kpi-card">
             <div class="kpi-label">Total Resolvidas com Filtro</div>
-            <div class="kpi-value">{len(df_resolvidas)}</div>
+            <div class="kpi-value" style="color: #4B4EFF;">{len(df_resolvidas)}</div>
         </div>
         """,
         unsafe_allow_html=True,

@@ -14,7 +14,7 @@ import utils  # [MODIFICADO] Importando utils
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
 
-# [NOVO] Injeta CSS dos KPIs via utils
+# [NOVO] Injeta CSS Global e dos KPIs via utils
 utils.render_page_config_and_css()
 
 if "categoria_top" not in st.session_state:
@@ -113,7 +113,7 @@ meses_traducao = {
 }
 meses_cronologicos = list(meses_traducao.values())
 
-# --- 3. CSS (Original, removido apenas o background fixo do kpi-card) ---
+# --- 3. CSS ---
 st.markdown(
     """
 <style>
@@ -171,18 +171,7 @@ div[data-baseweb="select"] div{
   white-space:normal !important; overflow:visible !important; text-overflow:clip !important;
 }
 
-/* KPIs e cards */
-.kpi-card{
-  /* background removido para usar o do utils.py */
-  padding:clamp(12px, 3vw, 20px); border-radius:10px; text-align:center;
-}
-.kpi-value{
-  font-size:clamp(1.6rem, 6vw, 3rem); font-weight:700; color:#FF4B4B;
-}
-.kpi-label{
-  font-size:clamp(.85rem, 2.5vw, 1rem); 
-  /* color:#fff; removido para usar variável de tema */
-}
+/* cards de detalhe (vermelhos) */
 .card-container{
   background:#FF4B4B; color:#fff; padding:clamp(12px, 3vw, 16px); border-radius:8px;
   box-shadow:0 4px 8px rgba(0,0,0,.2); word-wrap:break-word;
@@ -211,7 +200,8 @@ h1{
   }
 }
 
-/* Em meia tela ou menor, empilhar colunas que contenham botões */
+/* Em meia tela ou menor, empilhar colunas que contenham botões
+   (Sel. Todos / Desmarcar ficam um embaixo do outro) */
 @media (max-width:1100px){
   [data-testid="stHorizontalBlock"] > div:has(.stButton){
     flex-basis:100% !important;
@@ -418,7 +408,7 @@ with st.container(border=True):
             f"""
         <div class="kpi-card">
             <div class="kpi-label">USINAS DESLIGADAS NO MOMENTO</div>
-            <div class="kpi-value">{count_deslig}</div>
+            <div class="kpi-value" style="color: #FF4B4B;">{count_deslig}</div>
         </div>
         """,
             unsafe_allow_html=True,
@@ -429,7 +419,7 @@ with st.container(border=True):
             f"""
         <div class="kpi-card">
             <div class="kpi-label">EQUIPAMENTOS PARADOS NO MOMENTO</div>
-            <div class="kpi-value">{count_equip}</div>
+            <div class="kpi-value" style="color: #FF4B4B;">{count_equip}</div>
         </div>
         """,
             unsafe_allow_html=True,
@@ -509,7 +499,7 @@ with col_kpi1:
         f"""
     <div class="kpi-card">
         <div class="kpi-label">Total no Banco de Dados Completo</div>
-        <div class="kpi-value">{total_kpi_value}</div>
+        <div class="kpi-value" style="color: #FF4B4B;">{total_kpi_value}</div>
     </div>
     """,
         unsafe_allow_html=True,
@@ -946,7 +936,7 @@ with col_kpi2:
         f"""
         <div class="kpi-card">
             <div class="kpi-label">Total com Filtro Selecionado</div>
-            <div class="kpi-value">{len(df_desligadas)}</div>
+            <div class="kpi-value" style="color: #FF4B4B;">{len(df_desligadas)}</div>
         </div>
         """,
         unsafe_allow_html=True,

@@ -44,10 +44,10 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (ADICIONADO) ---
+# --- CSS E TEMA (CORRIGIDO PARA PINTAR O FUNDO) ---
 def render_page_config_and_css():
     """
-    Injeta o CSS dinâmico para os cartões KPI.
+    Injeta o CSS dos KPI Cards e controla o Fundo da Página.
     """
     st.sidebar.markdown("### 🎨 Visual")
     tema_cards = st.sidebar.radio(
@@ -56,30 +56,65 @@ def render_page_config_and_css():
         index=0
     )
 
+    # Variáveis Padrão (Automático)
+    kpi_bg = "var(--secondary-background-color)"
+    kpi_text = "var(--text-color)"
+    kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
+    global_dark_override = ""
+
+    # Se o usuário escolher "Sempre Escuro", forçamos as cores
     if tema_cards == "Sempre Escuro":
         kpi_bg = "#333333"
         kpi_text = "#FFFFFF"
         kpi_border = "none"
-    else:
-        # Usa variáveis do Streamlit para adaptar ao tema
-        kpi_bg = "var(--secondary-background-color)"
-        kpi_text = "var(--text-color)"
-        kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
+        
+        # CSS para forçar o fundo escuro em toda a aplicação, independente do navegador
+        global_dark_override = """
+        /* Força fundo escuro na aplicação inteira */
+        .stApp {
+            background-color: #0E1117 !important;
+            color: #FAFAFA !important;
+        }
+        /* Força fundo escuro na barra lateral */
+        [data-testid="stSidebar"] {
+            background-color: #262730 !important;
+        }
+        /* Ajusta cor de textos gerais */
+        h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label {
+            color: #FAFAFA !important;
+        }
+        /* Ajusta inputs para ficarem visíveis no escuro */
+        .stTextInput > div > div, .stSelectbox > div > div, .stMultiSelect > div > div {
+            background-color: #262730 !important;
+            color: white !important;
+        }
+        """
 
     st.markdown(f"""
     <style>
-        /* CSS Base dos KPIs injetado globalmente */
+        /* Estilo dos KPIs */
         .kpi-card {{
             background-color: {kpi_bg};
             color: {kpi_text};
+            padding: clamp(12px, 3vw, 20px);
+            border-radius: 10px;
+            text-align: center;
             border: {kpi_border};
             transition: all 0.3s ease;
-            /* Padding e Radius definidos nas páginas individuais */
         }}
         .kpi-label {{
+            font-size: clamp(.85rem, 2.5vw, 1rem);
             color: {kpi_text};
             opacity: 0.9;
         }}
+        .kpi-value {{
+            font-size: clamp(1.6rem, 6vw, 3rem);
+            font-weight: 700;
+            margin-top: 5px;
+        }}
+        
+        /* Aplica o override global se "Sempre Escuro" estiver ativo */
+        {global_dark_override}
     </style>
     """, unsafe_allow_html=True)
 
