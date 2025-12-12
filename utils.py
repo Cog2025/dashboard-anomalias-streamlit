@@ -85,6 +85,10 @@ def sanitizekey(text):
 def _inject_common_css():
     """
     CSS que deve valer no tema claro e escuro (grid dias + toggle sidebar).
+    Observação: o toggle usa variáveis CSS:
+      --sb_toggle_bg
+      --sb_toggle_border
+      --sb_toggle_fg
     """
     st.markdown(
         """
@@ -104,93 +108,92 @@ def _inject_common_css():
 }
 
 /* =========================================================
-   1) GRID DE DIAS (checkboxes) - mantém regras antigas (não atrapalha)
+   1) GRID DE DIAS (checkboxes) - (não atrapalha com checkbox sem label)
    ========================================================= */
-
-/* BaseWeb checkbox é mais estável entre versões */
 div[data-testid="stExpander"] label[data-baseweb="checkbox"]{
   display: flex !important;
   align-items: center !important;
   justify-content: flex-start !important;
   gap: 6px !important;
 }
-
-/* Texto do label (dia): mantém em uma linha e com largura mínima */
 div[data-testid="stExpander"] label[data-baseweb="checkbox"] > div:last-child,
 div[data-testid="stExpander"] label[data-baseweb="checkbox"] > span:last-child{
-  min-width: 2.6ch !important;          /* suficiente p/ 10..31 */
+  min-width: 2.6ch !important;
   text-align: center !important;
   white-space: nowrap !important;
   font-variant-numeric: tabular-nums !important;
 }
-
-/* Compacta checkboxes dentro do expander */
 div[data-testid="stExpander"] div[data-testid="stCheckbox"]{
   margin: 0 !important;
   padding: 0 !important;
 }
 
 /* =========================================================
-   2) BOTÃO DE COLAPSAR/EXPANDIR SIDEBAR - sempre visível
+   2) SIDEBAR TOGGLE - SEMPRE VISÍVEL (sem depender de hover)
    ========================================================= */
 
-/* Wrapper (algumas versões) */
-div[data-testid="stSidebarCollapsedControl"]{
+/* Wrapper do botão recolhido (algumas versões) */
+div[data-testid="stSidebarCollapsedControl"],
+div[data-testid="stSidebarCollapsedControl"] *{
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
-  z-index: 999999 !important;
 }
 
-/* Controle flutuante quando sidebar está recolhida */
-button[data-testid="collapsedControl"]{
-  opacity: 1 !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-  z-index: 999999 !important;
-
-  background: rgba(38,39,48,.92) !important;
-  border: 1px solid rgba(255,255,255,.35) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,.35) !important;
-
-  color: #FFFFFF !important; /* importante: alguns SVG usam currentColor */
-}
-
-/* Controle quando sidebar está aberta (varia por versão) */
+/* Lista de seletores do botão (varia por versão/ambiente) */
+button[data-testid="collapsedControl"],
 button[data-testid="stSidebarCollapseButton"],
 section[data-testid="stSidebar"] button[kind="header"],
-header button[kind="header"]{
+header button[kind="header"],
+/* fallback por aria-label (bem mais estável) */
+button[aria-label="Collapse sidebar"],
+button[aria-label="Expand sidebar"],
+button[aria-label="Open sidebar"],
+button[aria-label="Close sidebar"],
+button[aria-label="Toggle sidebar"]{
+  /* Força aparecer mesmo fora do hover */
+  display: inline-flex !important;
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
-  z-index: 999999 !important;
 
-  background: rgba(38,39,48,.92) !important;
-  border: 1px solid rgba(255,255,255,.35) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,.35) !important;
+  /* Aparência */
+  background: var(--sb_toggle_bg, rgba(255,255,255,.95)) !important;
+  border: 1px solid var(--sb_toggle_border, rgba(0,0,0,.25)) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25) !important;
 
-  color: #FFFFFF !important;
+  /* Cor do ícone via currentColor */
+  color: var(--sb_toggle_fg, #0E1117) !important;
 }
 
-/* Ícone: força fill/color/stroke no svg */
+/* SVG do ícone: força fill/stroke em qualquer implementação */
 button[data-testid="collapsedControl"] svg,
 button[data-testid="stSidebarCollapseButton"] svg,
 section[data-testid="stSidebar"] button[kind="header"] svg,
-header button[kind="header"] svg{
-  fill: #FFFFFF !important;
-  color: #FFFFFF !important;
-  stroke: #FFFFFF !important;
+header button[kind="header"] svg,
+button[aria-label="Collapse sidebar"] svg,
+button[aria-label="Expand sidebar"] svg,
+button[aria-label="Open sidebar"] svg,
+button[aria-label="Close sidebar"] svg,
+button[aria-label="Toggle sidebar"] svg{
+  fill: var(--sb_toggle_fg, #0E1117) !important;
+  stroke: var(--sb_toggle_fg, #0E1117) !important;
+  color: var(--sb_toggle_fg, #0E1117) !important;
 }
 
-/* Ícone: força também em path/g/* (muitos temas sobrescrevem aqui) */
-button[data-testid="collapsedControl"] svg * ,
-button[data-testid="stSidebarCollapseButton"] svg * ,
-section[data-testid="stSidebar"] button[kind="header"] svg * ,
-header button[kind="header"] svg * {
-  fill: #FFFFFF !important;
-  stroke: #FFFFFF !important;
+/* Alguns temas setam fill/stroke nos paths */
+button[data-testid="collapsedControl"] svg *,
+button[data-testid="stSidebarCollapseButton"] svg *,
+section[data-testid="stSidebar"] button[kind="header"] svg *,
+header button[kind="header"] svg *,
+button[aria-label="Collapse sidebar"] svg *,
+button[aria-label="Expand sidebar"] svg *,
+button[aria-label="Open sidebar"] svg *,
+button[aria-label="Close sidebar"] svg *,
+button[aria-label="Toggle sidebar"] svg *{
+  fill: var(--sb_toggle_fg, #0E1117) !important;
+  stroke: var(--sb_toggle_fg, #0E1117) !important;
 }
 </style>
 """,
@@ -227,7 +230,43 @@ def render_page_config_and_css():
         on_change=atualizar_tema,
     )
 
-    # CSS comum (claro + escuro)
+    # ---------------------------------------------------------
+    # Variáveis do botão de sidebar:
+    # - Em "Sempre Escuro": branco no ícone + fundo escuro
+    # - Em "Automático": usa media query do sistema (prefers-color-scheme)
+    # ---------------------------------------------------------
+    if tema_cards == "Sempre Escuro":
+        toggle_vars_css = """
+        <style>
+          :root{
+            --sb_toggle_bg: rgba(38,39,48,.96);
+            --sb_toggle_border: rgba(255,255,255,.55);
+            --sb_toggle_fg: #FFFFFF;
+          }
+        </style>
+        """
+    else:
+        # Base: claro
+        toggle_vars_css = """
+        <style>
+          :root{
+            --sb_toggle_bg: rgba(255,255,255,.96);
+            --sb_toggle_border: rgba(0,0,0,.25);
+            --sb_toggle_fg: #0E1117;
+          }
+          @media (prefers-color-scheme: dark){
+            :root{
+              --sb_toggle_bg: rgba(38,39,48,.96);
+              --sb_toggle_border: rgba(255,255,255,.55);
+              --sb_toggle_fg: #FFFFFF;
+            }
+          }
+        </style>
+        """
+
+    st.markdown(toggle_vars_css, unsafe_allow_html=True)
+
+    # CSS comum (claro + escuro) - usa as vars acima
     _inject_common_css()
 
     global_dark_override = ""
@@ -331,7 +370,7 @@ def render_page_config_and_css():
           color: #FFFFFF !important;
         }
 
-        /* Ícone/seta */
+        /* Ícone/seta do select */
         div[data-baseweb="select"] svg{
           fill: #FAFAFA !important;
         }
@@ -346,7 +385,7 @@ def render_page_config_and_css():
         }
 
         /* =========================================================
-           EXPANDERS (corrige "Expandir ..." e fundo interno)
+           EXPANDERS
            ========================================================= */
         div[data-testid="stExpander"] details > summary {
           background-color: #262730 !important;
