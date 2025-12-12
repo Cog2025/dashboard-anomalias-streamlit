@@ -44,15 +44,18 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (CORRIGIDO: Persistência + Links da Sidebar) ---
+# --- CSS E TEMA (CORRIGIDO: Persistência + Links Visíveis) ---
 def render_page_config_and_css():
+    """
+    Injeta o CSS dinâmico e controla o tema visual com persistência.
+    """
     st.sidebar.markdown("### 🎨 Visual")
     
-    # Adicionando 'key' ao radio button, o Streamlit salva a escolha automaticamente
-    # no session_state, persistindo a opção ao mudar de página.
+    # Adicionamos 'key' para manter a escolha ao mudar de página
     tema_cards = st.sidebar.radio(
         "Fundo dos Indicadores:",
         options=["Automático (Claro/Escuro)", "Sempre Escuro"],
+        index=0,
         key="tema_visual_persistente" 
     )
 
@@ -63,31 +66,36 @@ def render_page_config_and_css():
         kpi_text = "#FFFFFF"
         kpi_border = "none"
         
-        # CSS para forçar o modo escuro na aplicação inteira e CORRIGIR LINKS
+        # CSS para forçar modo escuro e CORRIGIR LINKS da sidebar
         global_dark_override = """
         <style>
-            /* Força fundo escuro no corpo principal */
+            /* Fundo e texto base da aplicação */
             .stApp {
                 background-color: #0E1117 !important;
                 color: #FAFAFA !important;
             }
-            /* Força fundo escuro na barra lateral */
+            
+            /* Fundo da Barra Lateral */
             [data-testid="stSidebar"] {
                 background-color: #262730 !important;
             }
-            /* Força cor BRANCA em todos os textos e links da Sidebar */
+            
+            /* Força cor BRANCA em todos os elementos da Sidebar (Links, Textos, Ícones) */
             [data-testid="stSidebar"] *, 
             [data-testid="stSidebar"] a, 
             [data-testid="stSidebar"] span, 
-            [data-testid="stSidebar"] p,
-            [data-testid="stSidebarNav"] a {
+            [data-testid="stSidebar"] p, 
+            [data-testid="stSidebarNav"] a,
+            [data-testid="stSidebarNav"] span {
                 color: #FAFAFA !important;
             }
-            /* Textos gerais do corpo */
-            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label {
+
+            /* Textos gerais (Títulos, Markdown, Labels) */
+            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label {
                 color: #FAFAFA !important;
             }
-            /* Inputs (Caixas de texto/seleção) */
+            
+            /* Inputs (Caixas de texto e seleção) para não ficarem brancos no fundo branco */
             .stTextInput > div > div, .stSelectbox > div > div, .stMultiSelect > div > div {
                 background-color: #262730 !important;
                 color: white !important;
@@ -95,15 +103,16 @@ def render_page_config_and_css():
         </style>
         """
     else:
+        # Modo Automático (segue o navegador)
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
 
-    # Injeta o override global se necessário
+    # Injeta o CSS Global (se houver override)
     if global_dark_override:
         st.markdown(global_dark_override, unsafe_allow_html=True)
 
-    # CSS dos Cards KPI
+    # Injeta o CSS dos Cards KPI
     st.markdown(f"""
     <style>
         .kpi-card {{
@@ -124,7 +133,6 @@ def render_page_config_and_css():
             font-size: clamp(1.6rem, 6vw, 3rem);
             font-weight: 700;
             margin-top: 5px;
-            /* A cor do número é definida inline no HTML de cada página */
         }}
     </style>
     """, unsafe_allow_html=True)
