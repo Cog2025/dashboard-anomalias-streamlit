@@ -6,23 +6,38 @@ import time as pytime
 import os
 import re
 
-# --- CONSTANTES GLOBAIS ---
+# =========================================================
+# CONSTANTES (mantém dois padrões de nomes p/ compatibilidade)
+# =========================================================
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
+
 CREDS_FILE = "google_credentials.json"
+
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
+SPREADSHEETURL = SPREADSHEET_URL  # compat
 
 SHEET_DESLIGAMENTOS = "DESLIGAMENTOS"
 SHEET_EQUIPAMENTOS = "EQUIPAMENTOS"
 SHEET_DADOS = "DADOS"
 SHEET_DETALHADA = "Usinas_Detalhado"
 
+SHEETDESLIGAMENTOS = SHEET_DESLIGAMENTOS  # compat
+SHEETEQUIPAMENTOS = SHEET_EQUIPAMENTOS    # compat
+SHEETDADOS = SHEET_DADOS                  # compat
+SHEETDETALHADA = SHEET_DETALHADA          # compat
 
-# --- CONEXÃO GOOGLE SHEETS ---
+
+# =========================================================
+# GOOGLE SHEETS
+# =========================================================
 @st.cache_resource(ttl=600)
 def connect_to_google_sheets():
+    """
+    Conecta no Google Sheets via Service Account.
+    """
     if "gcp_service_account" in st.secrets:
         creds_dict = dict(st.secrets["gcp_service_account"])
         creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
@@ -31,6 +46,7 @@ def connect_to_google_sheets():
     else:
         st.error("Credenciais não encontradas.")
         return None
+
     client = gspread.authorize(creds)
     return client
 
@@ -43,35 +59,55 @@ def fetch_sheet_as_df(worksheet):
     return pd.DataFrame(data, columns=headers)
 
 
-# --- HELPERS ---
+# Aliases compat (nomes antigos usados nas páginas)
+def connecttogooglesheets():
+    return connect_to_google_sheets()
+
+
+def fetchsheetasdf(worksheet):
+    return fetch_sheet_as_df(worksheet)
+
+
+# =========================================================
+# HELPERS
+# =========================================================
 def sanitize_key(text):
     return re.sub(r"[^A-Za-z0-9_]", "_", str(text))
 
 
-# --- CSS E TEMA (CORRIGIDO: Contraste Dropdown) ---
+def sanitizekey(text):
+    return sanitize_key(text)
+
+
+# =========================================================
+# CSS / TEMA (inclui correções de dropdown, expander e checkbox)
+# =========================================================
 def render_page_config_and_css():
     """
-    Injeta o CSS dinâmico e controla o tema visual com persistência manual.
+    Injeta CSS e controla tema (Automático / Sempre Escuro) via sidebar.
     """
     st.sidebar.markdown("### 🎨 Visual")
 
     opcoes = ["Automático (Claro/Escuro)", "Sempre Escuro"]
 
-    # 1. Inicializa a memória do tema se ela não existir
+    # Compat de estado (aceita chaves antigas e novas)
     if "tema_escolhido" not in st.session_state:
-        st.session_state.tema_escolhido = opcoes[0]
+        if "temaescolhido" in st.session_state:
+            st.session_state.tema_escolhido = st.session_state.temaescolhido
+        else:
+            st.session_state.tema_escolhido = opcoes[0]
+    st.session_state.temaescolhido = st.session_state.tema_escolhido  # compat
 
-    # 2. Descobre qual o índice da opção salva na memória
     try:
         index_atual = opcoes.index(st.session_state.tema_escolhido)
     except ValueError:
         index_atual = 0
 
-    # 3. Função para atualizar a memória quando o usuário clicar
     def atualizar_tema():
+        # salva nos dois formatos
         st.session_state.tema_escolhido = st.session_state.key_radio_tema
+        st.session_state.temaescolhido = st.session_state.tema_escolhido
 
-    # 4. Renderiza o botão usando o índice da memória
     tema_cards = st.sidebar.radio(
         "Fundo dos Indicadores:",
         options=opcoes,
@@ -82,28 +118,25 @@ def render_page_config_and_css():
 
     global_dark_override = ""
 
-    # Lógica de cores baseada na escolha
     if tema_cards == "Sempre Escuro":
         kpi_bg = "#333333"
         kpi_text = "#FFFFFF"
         kpi_border = "none"
 
-        # CSS EXTENDIDO: Força modo escuro em inputs, dropdowns e menus
-        # (cobre variações do BaseWeb: popover/listbox/option via data-baseweb e via role)
         global_dark_override = """
         <style>
-        /* 1. Fundo Global e Texto Base */
+        /* =========================================================
+           Base (fundo/texto)
+           ========================================================= */
         .stApp {
           background-color: #0E1117 !important;
           color: #FAFAFA !important;
         }
 
-        /* 2. Barra Lateral e Header */
         section[data-testid="stSidebar"], header[data-testid="stHeader"] {
           background-color: #262730 !important;
         }
 
-        /* 3. Textos Gerais e Links */
         h1, h2, h3, h4, h5, h6, p, li, label,
         .stMarkdown, .stRadio label, .stCheckbox label,
         section[data-testid="stSidebar"] *,
@@ -111,7 +144,9 @@ def render_page_config_and_css():
           color: #FAFAFA !important;
         }
 
-        /* 4. Inputs básicos */
+        /* =========================================================
+           Inputs (text/number/date/time/textarea)
+           ========================================================= */
         .stTextInput input,
         .stNumberInput input,
         .stDateInput input,
@@ -122,16 +157,15 @@ def render_page_config_and_css():
           border: 1px solid #4A4A4A !important;
         }
 
-        /* Placeholder (inputs e selects) */
         input::placeholder,
-        textarea::placeholder,
-        div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p {
+        textarea::placeholder {
           color: #A0A0A0 !important;
           opacity: 1 !important;
         }
 
         /* =========================================================
            DROPDOWNS (Selectbox / Multiselect) - BaseWeb
+           (corrige contraste da lista aberta e opções)
            ========================================================= */
 
         /* Caixa do select (fechado) */
@@ -202,19 +236,63 @@ def render_page_config_and_css():
         .stMultiSelect [data-baseweb="tag"] *{
           color: #FFFFFF !important;
         }
+
+        /* =========================================================
+           EXPANDERS (corrige "Expandir anos/meses/dias" branco)
+           ========================================================= */
+
+        /* Cabeçalho do expander */
+        div[data-testid="stExpander"] details > summary {
+          background-color: #262730 !important;
+          border: 1px solid #4A4A4A !important;
+          border-radius: 8px !important;
+        }
+
+        /* Texto do cabeçalho */
+        div[data-testid="stExpander"] details > summary,
+        div[data-testid="stExpander"] details > summary * {
+          color: #FAFAFA !important;
+        }
+
+        /* Conteúdo aberto */
+        div[data-testid="stExpander"] div[role="region"] {
+          background-color: #0E1117 !important;
+          border: 1px solid #4A4A4A !important;
+          border-radius: 8px !important;
+          padding: 10px 12px !important;
+        }
+
+        /* =========================================================
+           CHECKBOX (melhora layout do grid de dias)
+           ========================================================= */
+
+        /* Evita o label do checkbox empurrar o texto p/ direita */
+        div[data-testid="stExpander"] div[data-testid="stCheckbox"] label {
+          justify-content: flex-start !important;
+          gap: .4rem !important;
+        }
+
+        /* Compacta */
+        div[data-testid="stExpander"] div[data-testid="stCheckbox"] {
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        div[data-testid="stExpander"] div[data-testid="stCheckbox"] label span {
+          font-size: 0.95rem !important;
+          line-height: 1.1 !important;
+          white-space: nowrap !important;
+        }
         </style>
         """
     else:
-        # Modo Automático
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
 
-    # Injeta o CSS Global
     if global_dark_override:
         st.markdown(global_dark_override, unsafe_allow_html=True)
 
-    # Injeta o CSS dos Cards KPI
+    # CSS dos Cards KPI (usado nas páginas)
     st.markdown(
         f"""
     <style>
@@ -243,9 +321,16 @@ def render_page_config_and_css():
     )
 
 
-# --- LOADING OVERLAY ---
+# Alias compat (nome antigo usado nas páginas)
+def renderpageconfigandcss():
+    return render_page_config_and_css()
+
+
+# =========================================================
+# LOADING OVERLAY
+# =========================================================
 def render_loading_overlay(ui_phase: str | None = None):
-    # compat: aceita "uiphase/ui_phase"
+    # compat: aceita uiphase/ui_phase
     phase = (
         ui_phase
         or st.session_state.get("uiphase")
@@ -282,7 +367,6 @@ def render_loading_overlay(ui_phase: str | None = None):
 
 
 def overlay_on():
-    # compat: escreve nos dois formatos
     st.session_state.uiphase = "loading"
     st.session_state.loadingts = pytime.time()
     st.session_state.ui_phase = "loading"
@@ -291,7 +375,6 @@ def overlay_on():
 
 
 def overlay_off():
-    # compat: escreve nos dois formatos
     st.session_state.uiphase = "ready"
     st.session_state.loadingts = 0
     st.session_state.ui_phase = "ready"
@@ -299,14 +382,7 @@ def overlay_off():
     render_loading_overlay("ready")
 
 
-# =========================================================
-# ALIASES PARA COMPATIBILIDADE COM O CÓDIGO DAS PÁGINAS
-# (mantém funcionando quem chama os nomes antigos)
-# =========================================================
-def renderpageconfigandcss():
-    return render_page_config_and_css()
-
-
+# Aliases compat (nomes antigos usados nas páginas)
 def renderloadingoverlay(ui_phase: str | None = None):
     return render_loading_overlay(ui_phase)
 
