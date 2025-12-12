@@ -44,7 +44,7 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (CORRIGIDO: Contraste Definitivo para Dropdowns) ---
+# --- CSS E TEMA (CORRIGIDO: Contraste Dropdown) ---
 def render_page_config_and_css():
     """
     Injeta o CSS dinâmico e controla o tema visual com persistência manual.
@@ -84,7 +84,7 @@ def render_page_config_and_css():
         kpi_text = "#FFFFFF"
         kpi_border = "none"
         
-        # CSS AGRESSIVO PARA CORRIGIR O CONTRASTE (FUNDOS E TEXTOS)
+        # CSS EXTENDIDO: Força modo escuro em inputs, dropdowns e menus
         global_dark_override = """
         <style>
             /* 1. Fundo Global e Texto Base */
@@ -98,88 +98,77 @@ def render_page_config_and_css():
                 background-color: #262730 !important;
             }
             
-            /* 3. Forçar texto branco em títulos, labels e markdown */
-            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label, span, div {
-                color: #FAFAFA;
+            /* 3. Textos Gerais e Links (Branco) */
+            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label,
+            [data-testid="stSidebar"] *, [data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] span {
+                color: #FAFAFA !important;
             }
 
-            /* --- CORREÇÃO DE INPUTS (Texto, Data, Hora, Área) --- */
+            /* --- INPUTS --- */
             .stTextInput input, .stNumberInput input, .stDateInput input, .stTimeInput input, .stTextArea textarea {
                 background-color: #262730 !important;
-                color: #FFFFFF !important;
+                color: #FAFAFA !important;
                 border: 1px solid #4A4A4A !important;
             }
-            /* Texto de ajuda (placeholder) */
-            ::placeholder {
-                color: #a3a3a3 !important;
-                opacity: 1 !important;
-            }
 
-            /* --- CORREÇÃO CRÍTICA DO DROPDOWN (SELECTBOX/MULTISELECT) --- */
+            /* --- DROPDOWNS (O Grande Vilão) --- */
             
-            /* A caixa fechada */
+            /* A caixa do select fechada */
             div[data-baseweb="select"] > div {
                 background-color: #262730 !important;
+                color: #FAFAFA !important;
                 border-color: #4A4A4A !important;
-                color: #FFFFFF !important;
             }
-            
-            /* Texto dentro da caixa fechada */
             div[data-baseweb="select"] span {
-                color: #FFFFFF !important;
+                color: #FAFAFA !important;
             }
             
-            /* Ícones (seta e X) */
-            div[data-baseweb="select"] svg {
-                fill: #FFFFFF !important;
-            }
-
-            /* O CONTAINER DO MENU SUSPENSO (POPOVER) */
-            div[data-baseweb="popover"], div[data-baseweb="popover"] > div {
-                background-color: #262730 !important;
-            }
-
-            /* A LISTA DE OPÇÕES (MENU) */
+            /* A caixa FLUTUANTE (Popover) e a LISTA (Menu) */
+            div[data-baseweb="popover"],
+            div[data-baseweb="popover"] > div,
             ul[data-baseweb="menu"] {
                 background-color: #262730 !important;
                 border: 1px solid #4A4A4A !important;
             }
 
-            /* CADA ITEM DA LISTA (Opção Normal) */
+            /* ITENS DA LISTA (Opções) */
             li[data-baseweb="option"] {
                 background-color: #262730 !important;
-                color: #FFFFFF !important;
-            }
-            
-            /* Texto dentro da opção */
-            li[data-baseweb="option"] div, li[data-baseweb="option"] span {
-                color: #FFFFFF !important;
-            }
-
-            /* ITEM SELECIONADO OU EM FOCO (HOVER) */
-            li[data-baseweb="option"]:hover, 
-            li[data-baseweb="option"][aria-selected="true"] {
-                background-color: #FF4B4B !important; /* Vermelho destaque */
-                color: #FFFFFF !important;
-            }
-            
-            /* Tag do MultiSelect (Item já selecionado na caixa) */
-            .stMultiSelect [data-baseweb="tag"] {
-                background-color: #FF4B4B !important;
-                color: white !important;
-            }
-            .stMultiSelect [data-baseweb="tag"] span {
-                color: white !important;
-            }
-
-            /* Corrige textos da Sidebar que podem sumir */
-            [data-testid="stSidebar"] *, [data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] span {
                 color: #FAFAFA !important;
             }
+            
+            /* Garante que texto dentro do li (span, div) seja branco */
+            li[data-baseweb="option"] * {
+                color: #FAFAFA !important;
+            }
+
+            /* ITEM SELECIONADO OU HOVER */
+            li[data-baseweb="option"]:hover, 
+            li[data-baseweb="option"][aria-selected="true"] {
+                background-color: #FF4B4B !important;
+                color: #FFFFFF !important;
+            }
+             li[data-baseweb="option"]:hover *, 
+            li[data-baseweb="option"][aria-selected="true"] * {
+                color: #FFFFFF !important;
+            }
+
+            /* Ícones (setas) */
+            div[data-baseweb="select"] svg {
+                fill: #FAFAFA !important;
+            }
+            
+            /* Tags do Multiselect */
+            .stMultiSelect [data-baseweb="tag"] {
+                background-color: #FF4B4B !important;
+            }
+            
+            /* Placeholders */
+            ::placeholder { color: #a0a0a0 !important; opacity: 1 !important; }
         </style>
         """
     else:
-        # Modo Automático (Usa variáveis do Streamlit)
+        # Modo Automático
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
