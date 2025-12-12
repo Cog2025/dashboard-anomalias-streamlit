@@ -11,11 +11,9 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
-# Mantendo compatibilidade com o nome de arquivo original caso precise
 CREDS_FILE = "google_credentials.json"
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
 
-# Nomes das Abas
 SHEET_DESLIGAMENTOS = "DESLIGAMENTOS"
 SHEET_EQUIPAMENTOS = "EQUIPAMENTOS"
 SHEET_DADOS = "DADOS"
@@ -24,32 +22,78 @@ SHEET_DETALHADA = "Usinas_Detalhado"
 # --- CONEXÃO GOOGLE SHEETS ---
 @st.cache_resource(ttl=600)
 def connect_to_google_sheets():
-    """Conecta usando secrets.toml (nuvem) ou arquivo local (fallback)."""
     if "gcp_service_account" in st.secrets:
         creds_dict = dict(st.secrets["gcp_service_account"])
         creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
     elif os.path.exists(CREDS_FILE):
         creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
     else:
-        st.error("Credenciais não encontradas. Configure o secrets.toml ou adicione o google_credentials.json.")
+        st.error("Credenciais não encontradas.")
         return None
-        
     client = gspread.authorize(creds)
     return client
 
 def fetch_sheet_as_df(worksheet):
-    """Lê uma aba e retorna DataFrame."""
     data = worksheet.get_all_values()
     if not data:
         return pd.DataFrame()
     headers = [h.replace('\xa0', '').strip() for h in data.pop(0)]
     return pd.DataFrame(data, columns=headers)
 
-# --- HELPERS (Texto e Chaves) ---
+# --- HELPERS ---
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- LOADING OVERLAY (Cópia exata da sua lógica original) ---
+# --- CSS E TEMA (NOVO) ---
+def render_page_config_and_css():
+    """
+    Injeta o CSS dos KPI Cards.
+    Adiciona um toggle na sidebar para forçar modo escuro ou automático.
+    """
+    st.sidebar.markdown("### 🎨 Visual")
+    tema_cards = st.sidebar.radio(
+        "Fundo dos Indicadores:",
+        options=["Automático (Claro/Escuro)", "Sempre Escuro"],
+        index=0
+    )
+
+    # Definição das cores
+    if tema_cards == "Sempre Escuro":
+        kpi_bg = "#333333"
+        kpi_text = "#FFFFFF"
+        kpi_border = "none"
+    else:
+        # Variáveis nativas do Streamlit para adaptação automática
+        kpi_bg = "var(--secondary-background-color)"
+        kpi_text = "var(--text-color)"
+        kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
+
+    # CSS APENAS para os .kpi-cards (não afeta botões nem cards coloridos)
+    st.markdown(f"""
+    <style>
+        .kpi-card {{
+            background-color: {kpi_bg};
+            color: {kpi_text};
+            padding: clamp(12px, 3vw, 20px);
+            border-radius: 10px;
+            text-align: center;
+            border: {kpi_border};
+            transition: all 0.3s ease;
+        }}
+        .kpi-label {{
+            font-size: clamp(.85rem, 2.5vw, 1rem);
+            color: {kpi_text};
+            opacity: 0.9;
+        }}
+        .kpi-value {{
+            font-size: clamp(1.6rem, 6vw, 3rem);
+            font-weight: 700;
+            /* A cor do número (Vermelho/Azul) é mantida no HTML inline das páginas */
+        }}
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- LOADING OVERLAY ---
 def render_loading_overlay(ui_phase: str | None = None):
     phase = ui_phase or st.session_state.get('ui_phase', 'ready')
     display = 'flex' if phase == 'loading' else 'none'

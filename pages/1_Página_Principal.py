@@ -14,6 +14,9 @@ import utils  # [MODIFICADO] Importando utils
 # --- 1. Configuração da Página e Layout ---
 st.set_page_config(layout="wide")
 
+# [NOVO] Injeta CSS dos KPIs via utils
+utils.render_page_config_and_css()
+
 if "categoria_top" not in st.session_state:
     st.session_state["categoria_top"] = "Ambas"
 
@@ -33,13 +36,11 @@ utils.render_loading_overlay(st.session_state.ui_phase)
 def start_loading():
     st.session_state.ui_phase = "loading"
     st.session_state.loading_ts = pytime.time()
-    # st.rerun()
 
 
 def stop_loading():
     st.session_state.ui_phase = "ready"
     st.session_state.loading_ts = 0
-    # st.rerun()
 
 
 # [MODIFICADO] Usando utils
@@ -112,7 +113,7 @@ meses_traducao = {
 }
 meses_cronologicos = list(meses_traducao.values())
 
-# --- 3. CSS ---
+# --- 3. CSS (Original, removendo apenas .kpi-card duplicado) ---
 st.markdown(
     """
 <style>
@@ -170,16 +171,8 @@ div[data-baseweb="select"] div{
   white-space:normal !important; overflow:visible !important; text-overflow:clip !important;
 }
 
-/* KPIs e cards */
-.kpi-card{
-  background:#333; padding:clamp(12px, 3vw, 20px); border-radius:10px; text-align:center;
-}
-.kpi-value{
-  font-size:clamp(1.6rem, 6vw, 3rem); font-weight:700; color:#FF4B4B;
-}
-.kpi-label{
-  font-size:clamp(.85rem, 2.5vw, 1rem); color:#fff;
-}
+/* KPIs removidos daqui pois vêm do utils.py agora */
+
 .card-container{
   background:#FF4B4B; color:#fff; padding:clamp(12px, 3vw, 16px); border-radius:8px;
   box-shadow:0 4px 8px rgba(0,0,0,.2); word-wrap:break-word;
@@ -208,10 +201,8 @@ h1{
   }
 }
 
-/* Em meia tela ou menor, empilhar colunas que contenham botões
-   (Sel. Todos / Desmarcar ficam um embaixo do outro) */
+/* Em meia tela ou menor, empilhar colunas que contenham botões */
 @media (max-width:1100px){
-  /* Cada coluna que tiver stButton passa a ocupar 100% da linha */
   [data-testid="stHorizontalBlock"] > div:has(.stButton){
     flex-basis:100% !important;
     min-width:100% !important;
@@ -222,7 +213,6 @@ h1{
 """,
     unsafe_allow_html=True,
 )
-
 
 
 st.markdown(
@@ -236,7 +226,6 @@ st.markdown(
 )
 
 # --- 4. Carregar e Tratar os Dados ---
-
 
 @st.cache_data(ttl=600)
 def carregar_dados_google_sheets(cache_buster: int = 0):
@@ -418,7 +407,7 @@ with st.container(border=True):
             f"""
         <div class="kpi-card">
             <div class="kpi-label">USINAS DESLIGADAS NO MOMENTO</div>
-            <div class="kpi-value">{count_deslig}</div>
+            <div class="kpi-value" style="color: #FF4B4B;">{count_deslig}</div>
         </div>
         """,
             unsafe_allow_html=True,
@@ -429,7 +418,7 @@ with st.container(border=True):
             f"""
         <div class="kpi-card">
             <div class="kpi-label">EQUIPAMENTOS PARADOS NO MOMENTO</div>
-            <div class="kpi-value">{count_equip}</div>
+            <div class="kpi-value" style="color: #FF4B4B;">{count_equip}</div>
         </div>
         """,
             unsafe_allow_html=True,
@@ -509,7 +498,7 @@ with col_kpi1:
         f"""
     <div class="kpi-card">
         <div class="kpi-label">Total no Banco de Dados Completo</div>
-        <div class="kpi-value">{total_kpi_value}</div>
+        <div class="kpi-value" style="color: #FF4B4B;">{total_kpi_value}</div>
     </div>
     """,
         unsafe_allow_html=True,
@@ -1157,7 +1146,7 @@ if not df_desligadas.empty:
                     <div class="card-item"><span class="card-label">Tipo de Ocorrência:</span> {tipoocorrencia}</div>
                     <div class="card-item"><span class="card-label">Ativo:</span> {ativo}</div>
                     <div class="card-item"><span class="card-label">Nome do ativo:</span> {nomeativo}</div>
-                    <div class="card-item"><span class="card-label">Ocorrência:</span> {ocorrencia}</div>
+                    <div class="card-item"><span class="card-label">Ocorrência:</span> {ocorr}</div>
                     <div class="card-item"><span class="card-label">Operador:</span> {operador}</div>
                     {quantidadehtml}
                     <br>
