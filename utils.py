@@ -44,11 +44,10 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (NOVO) ---
+# --- CSS E TEMA (ADICIONADO) ---
 def render_page_config_and_css():
     """
-    Injeta o CSS dos KPI Cards.
-    Adiciona um toggle na sidebar para forçar modo escuro ou automático.
+    Injeta o CSS dinâmico para os cartões KPI.
     """
     st.sidebar.markdown("### 🎨 Visual")
     tema_cards = st.sidebar.radio(
@@ -57,38 +56,29 @@ def render_page_config_and_css():
         index=0
     )
 
-    # Definição das cores
     if tema_cards == "Sempre Escuro":
         kpi_bg = "#333333"
         kpi_text = "#FFFFFF"
         kpi_border = "none"
     else:
-        # Variáveis nativas do Streamlit para adaptação automática
+        # Usa variáveis do Streamlit para adaptar ao tema
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
 
-    # CSS APENAS para os .kpi-cards (não afeta botões nem cards coloridos)
     st.markdown(f"""
     <style>
+        /* CSS Base dos KPIs injetado globalmente */
         .kpi-card {{
             background-color: {kpi_bg};
             color: {kpi_text};
-            padding: clamp(12px, 3vw, 20px);
-            border-radius: 10px;
-            text-align: center;
             border: {kpi_border};
             transition: all 0.3s ease;
+            /* Padding e Radius definidos nas páginas individuais */
         }}
         .kpi-label {{
-            font-size: clamp(.85rem, 2.5vw, 1rem);
             color: {kpi_text};
             opacity: 0.9;
-        }}
-        .kpi-value {{
-            font-size: clamp(1.6rem, 6vw, 3rem);
-            font-weight: 700;
-            /* A cor do número (Vermelho/Azul) é mantida no HTML inline das páginas */
         }}
     </style>
     """, unsafe_allow_html=True)

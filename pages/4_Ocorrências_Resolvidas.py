@@ -107,7 +107,7 @@ meses_traducao = {
 }
 meses_cronologicos = list(meses_traducao.values())
 
-# --- 3. CSS (Removido .kpi-card duplicado) ---
+# --- 3. CSS (Original, removido apenas o background fixo do kpi-card) ---
 st.markdown(
     """
 <style>
@@ -165,8 +165,18 @@ div[data-baseweb="select"] div{
   white-space:normal !important; overflow:visible !important; text-overflow:clip !important;
 }
 
-/* KPIs removidos daqui pois vêm do utils.py agora */
-
+/* KPIs e cards – cores específicas da página 4 */
+.kpi-card{
+  /* background removido para usar o do utils.py */
+  padding:clamp(12px, 3vw, 20px); border-radius:10px; text-align:center;
+}
+.kpi-value{
+  font-size:clamp(1.6rem, 6vw, 3rem); font-weight:700; color:#4B4EFF;
+}
+.kpi-label{
+  font-size:clamp(.85rem, 2.5vw, 1rem); 
+  /* color:#fff; removido para usar variável de tema */
+}
 .card-container{
   background:#089641; color:#fff; padding:clamp(12px, 3vw, 16px); border-radius:8px;
   box-shadow:0 4px 8px rgba(0,0,0,.2); word-wrap:break-word;
