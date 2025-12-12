@@ -11,9 +11,11 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
+# Mantendo compatibilidade com o nome de arquivo original caso precise
 CREDS_FILE = "google_credentials.json"
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1KeJjbsLVP9DkxPCmNSN4VzbSBeG3SFSCAdPhir39iqg/edit?usp=sharing"
 
+# Nomes das Abas
 SHEET_DESLIGAMENTOS = "DESLIGAMENTOS"
 SHEET_EQUIPAMENTOS = "EQUIPAMENTOS"
 SHEET_DADOS = "DADOS"
@@ -31,71 +33,23 @@ def connect_to_google_sheets():
     else:
         st.error("Credenciais não encontradas. Configure o secrets.toml ou adicione o google_credentials.json.")
         return None
+        
     client = gspread.authorize(creds)
     return client
 
 def fetch_sheet_as_df(worksheet):
+    """Lê uma aba e retorna DataFrame."""
     data = worksheet.get_all_values()
     if not data:
         return pd.DataFrame()
     headers = [h.replace('\xa0', '').strip() for h in data.pop(0)]
     return pd.DataFrame(data, columns=headers)
 
-# --- HELPERS ---
+# --- HELPERS (Texto e Chaves) ---
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA INTELIGENTE (NOVO) ---
-def render_page_config_and_css():
-    """
-    Controla APENAS a cor dos cartões de KPI (Topo).
-    Mantém o restante do estilo original.
-    """
-    st.sidebar.markdown("### 🎨 Visual")
-    tema_cards = st.sidebar.radio(
-        "Fundo dos Indicadores:",
-        options=["Automático (Claro/Escuro)", "Sempre Escuro"],
-        index=0
-    )
-
-    # Lógica de cores
-    if tema_cards == "Sempre Escuro":
-        kpi_bg = "#333333"
-        kpi_text = "#FFFFFF"
-        kpi_border = "none"
-    else:
-        # Usa variáveis do Streamlit para se adaptar ao tema do navegador
-        kpi_bg = "var(--secondary-background-color)"
-        kpi_text = "var(--text-color)"
-        kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
-
-    st.markdown(f"""
-    <style>
-        /* CSS Dinâmico APENAS para os KPIs */
-        .kpi-card {{
-            background-color: {kpi_bg};
-            color: {kpi_text};
-            padding: clamp(12px, 3vw, 20px);
-            border-radius: 10px;
-            text-align: center;
-            border: {kpi_border};
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }}
-        .kpi-label {{
-            font-size: clamp(.85rem, 2.5vw, 1rem);
-            color: {kpi_text};
-            opacity: 0.9;
-        }}
-        .kpi-value {{
-            font-size: clamp(1.6rem, 6vw, 3rem);
-            font-weight: 700;
-            margin-top: 5px;
-            /* A cor do número é definida no HTML da página (Vermelho ou Azul) */
-        }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- LOADING OVERLAY ---
+# --- LOADING OVERLAY (Cópia exata da sua lógica original) ---
 def render_loading_overlay(ui_phase: str | None = None):
     phase = ui_phase or st.session_state.get('ui_phase', 'ready')
     display = 'flex' if phase == 'loading' else 'none'
