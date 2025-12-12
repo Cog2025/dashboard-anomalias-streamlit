@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 from google.oauth2.service_account import Credentials
 
+
 # =========================================================
 # CONSTANTES (com aliases p/ compatibilidade com suas páginas)
 # =========================================================
@@ -89,7 +90,21 @@ def _inject_common_css():
         """
 <style>
 /* =========================================================
-   1) GRID DE DIAS (checkboxes) - evita "número quebrado" (2 dígitos)
+   0) NÚMERO DO DIA (quando checkbox está sem label)
+   ========================================================= */
+.day-num{
+  width: 100%;
+  text-align: center !important;
+  font-size: 12px !important;
+  line-height: 12px !important;
+  margin-top: -6px !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+  user-select: none !important;
+}
+
+/* =========================================================
+   1) GRID DE DIAS (checkboxes) - mantém regras antigas (não atrapalha)
    ========================================================= */
 
 /* BaseWeb checkbox é mais estável entre versões */
@@ -119,13 +134,25 @@ div[data-testid="stExpander"] div[data-testid="stCheckbox"]{
    2) BOTÃO DE COLAPSAR/EXPANDIR SIDEBAR - sempre visível
    ========================================================= */
 
+/* Wrapper (algumas versões) */
+div[data-testid="stSidebarCollapsedControl"]{
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: 999999 !important;
+}
+
 /* Controle flutuante quando sidebar está recolhida */
 button[data-testid="collapsedControl"]{
   opacity: 1 !important;
   visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: 999999 !important;
+
   background: rgba(38,39,48,.92) !important;
   border: 1px solid rgba(255,255,255,.35) !important;
   border-radius: 8px !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35) !important;
 }
 
 /* Controle quando sidebar está aberta (varia por versão) */
@@ -134,9 +161,13 @@ section[data-testid="stSidebar"] button[kind="header"],
 header button[kind="header"]{
   opacity: 1 !important;
   visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: 999999 !important;
+
   background: rgba(38,39,48,.92) !important;
   border: 1px solid rgba(255,255,255,.35) !important;
   border-radius: 8px !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35) !important;
 }
 
 /* Ícone sempre visível */
@@ -157,7 +188,7 @@ def render_page_config_and_css():
     """
     Injeta CSS e controla tema (Automático / Sempre Escuro) via sidebar.
     """
-    st.sidebar.markdown("### 🎨 Visual")
+    st.sidebar.markdown("### Visual")
     opcoes = ["Automático (Claro/Escuro)", "Sempre Escuro"]
 
     # Compat de estado (algumas páginas usam 'temaescolhido')

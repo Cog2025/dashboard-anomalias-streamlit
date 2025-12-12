@@ -637,6 +637,7 @@ if not df_todos_dados.empty:
     # --- Dia(s) ---
     if "dias_disponiveis" not in locals():
         dias_disponiveis = list(range(1, 32))
+
     with col_dia:
         with st.container(border=True):
             st.write("### Dia(s):")
@@ -644,18 +645,21 @@ if not df_todos_dados.empty:
                 dias_cols = st.columns(7)
                 for i, dia in enumerate(range(1, 32)):
                     with dias_cols[i % 7]:
-                        if dia in dias_disponiveis:
-                            st.checkbox(
-                                str(dia),
-                                key=f"cb_dia_{dia}",
-                                value=(dia in st.session_state.filtros_dias),
-                            )
-                        else:
-                            st.checkbox(
-                                str(dia),
-                                key=f"cb_dia_{dia}",
-                                disabled=True,
-                            )
+                        habilitado = dia in dias_disponiveis
+
+                        st.checkbox(
+                            "",
+                            key=f"cb_dia_{dia}",
+                            value=(dia in st.session_state.filtros_dias) if habilitado else False,
+                            disabled=not habilitado,
+                            label_visibility="collapsed",
+                        )
+
+                        # Número separado (não “quebra” em 10..31)
+                        st.markdown(
+                            f"<div class='day-num'>{dia:02d}</div>",
+                            unsafe_allow_html=True,
+                        )
 
             btn_dia_col1, btn_dia_col2 = st.columns(2)
             with btn_dia_col1:
@@ -686,12 +690,14 @@ if not df_todos_dados.empty:
                         set(dias_disponiveis),
                     ),
                 )
+
             if not (clicked_sel_dia or clicked_des_dia):
                 st.session_state.filtros_dias = [
                     d
                     for d in dias_disponiveis
                     if st.session_state.get(f"cb_dia_{d}", False)
                 ]
+
 
 # --- Filtros Adicionais ---
 st.subheader("Filtros Adicionais")

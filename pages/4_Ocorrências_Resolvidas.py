@@ -594,18 +594,20 @@ if not df.empty:
                 dias_cols = st.columns(7)
                 for i, dia in enumerate(range(1, 32)):
                     with dias_cols[i % 7]:
-                        if dia in dias_disponiveis:
-                            st.checkbox(
-                                str(dia),
-                                key=f"cb_dia_{dia}",
-                                value=(dia in st.session_state.ui_filtros_dias),
-                            )
-                        else:
-                            st.checkbox(
-                                str(dia),
-                                key=f"cb_dia_{dia}",
-                                disabled=True,
-                            )
+                        habilitado = dia in dias_disponiveis
+
+                        st.checkbox(
+                            "",
+                            key=f"cb_dia_{dia}",
+                            value=(dia in st.session_state.ui_filtros_dias) if habilitado else False,
+                            disabled=not habilitado,
+                            label_visibility="collapsed",
+                        )
+
+                        st.markdown(
+                            f"<div class='day-num'>{dia:02d}</div>",
+                            unsafe_allow_html=True,
+                        )
 
             btn_dia1, btn_dia2 = st.columns(2)
             with btn_dia1:
@@ -636,12 +638,14 @@ if not df.empty:
                         set(dias_disponiveis),
                     ),
                 )
+
             if not (clicked_sel_dia or clicked_des_dia):
                 st.session_state.ui_filtros_dias = [
                     d
                     for d in dias_disponiveis
                     if st.session_state.get(f"cb_dia_{d}", False)
                 ]
+
 
 
 # --- Filtros Adicionais (UI, sobre resolvidas) ---
