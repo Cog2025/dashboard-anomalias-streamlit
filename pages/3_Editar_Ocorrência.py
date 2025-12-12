@@ -11,7 +11,7 @@ import utils
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(layout="wide")
 
-# [NOVO] Aplica o tema visual corrigido
+# [NOVO] Garante persistência do tema e aplica CSS global
 utils.render_page_config_and_css()
 
 # Estado mínimo do overlay
