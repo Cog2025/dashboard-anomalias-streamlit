@@ -19,6 +19,7 @@ SHEET_EQUIPAMENTOS = "EQUIPAMENTOS"
 SHEET_DADOS = "DADOS"
 SHEET_DETALHADA = "Usinas_Detalhado"
 
+
 # --- CONEXÃO GOOGLE SHEETS ---
 @st.cache_resource(ttl=600)
 def connect_to_google_sheets():
@@ -33,16 +34,19 @@ def connect_to_google_sheets():
     client = gspread.authorize(creds)
     return client
 
+
 def fetch_sheet_as_df(worksheet):
     data = worksheet.get_all_values()
     if not data:
         return pd.DataFrame()
-    headers = [h.replace('\xa0', '').strip() for h in data.pop(0)]
+    headers = [h.replace("\xa0", "").strip() for h in data.pop(0)]
     return pd.DataFrame(data, columns=headers)
+
 
 # --- HELPERS ---
 def sanitize_key(text):
-    return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
+    return re.sub(r"[^A-Za-z0-9_]", "_", str(text))
+
 
 # --- CSS E TEMA (CORRIGIDO: Contraste Dropdown) ---
 def render_page_config_and_css():
@@ -50,9 +54,9 @@ def render_page_config_and_css():
     Injeta o CSS dinâmico e controla o tema visual com persistência manual.
     """
     st.sidebar.markdown("### 🎨 Visual")
-    
+
     opcoes = ["Automático (Claro/Escuro)", "Sempre Escuro"]
-    
+
     # 1. Inicializa a memória do tema se ela não existir
     if "tema_escolhido" not in st.session_state:
         st.session_state.tema_escolhido = opcoes[0]
@@ -71,100 +75,133 @@ def render_page_config_and_css():
     tema_cards = st.sidebar.radio(
         "Fundo dos Indicadores:",
         options=opcoes,
-        index=index_atual,       
-        key="key_radio_tema",    
-        on_change=atualizar_tema 
+        index=index_atual,
+        key="key_radio_tema",
+        on_change=atualizar_tema,
     )
 
     global_dark_override = ""
-    
+
     # Lógica de cores baseada na escolha
     if tema_cards == "Sempre Escuro":
         kpi_bg = "#333333"
         kpi_text = "#FFFFFF"
         kpi_border = "none"
-        
+
         # CSS EXTENDIDO: Força modo escuro em inputs, dropdowns e menus
+        # (cobre variações do BaseWeb: popover/listbox/option via data-baseweb e via role)
         global_dark_override = """
         <style>
-            /* 1. Fundo Global e Texto Base */
-            .stApp {
-                background-color: #0E1117 !important;
-                color: #FAFAFA !important;
-            }
-            
-            /* 2. Barra Lateral e Header */
-            [data-testid="stSidebar"], header[data-testid="stHeader"] {
-                background-color: #262730 !important;
-            }
-            
-            /* 3. Textos Gerais e Links (Branco) */
-            h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label,
-            [data-testid="stSidebar"] *, [data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] span {
-                color: #FAFAFA !important;
-            }
+        /* 1. Fundo Global e Texto Base */
+        .stApp {
+          background-color: #0E1117 !important;
+          color: #FAFAFA !important;
+        }
 
-            /* --- INPUTS --- */
-            .stTextInput input, .stNumberInput input, .stDateInput input, .stTimeInput input, .stTextArea textarea {
-                background-color: #262730 !important;
-                color: #FAFAFA !important;
-                border: 1px solid #4A4A4A !important;
-            }
+        /* 2. Barra Lateral e Header */
+        section[data-testid="stSidebar"], header[data-testid="stHeader"] {
+          background-color: #262730 !important;
+        }
 
-            /* --- DROPDOWNS (O Grande Vilão) --- */
-            
-            /* A caixa do select fechada */
-            div[data-baseweb="select"] > div {
-                background-color: #262730 !important;
-                color: #FAFAFA !important;
-                border-color: #4A4A4A !important;
-            }
-            div[data-baseweb="select"] span {
-                color: #FAFAFA !important;
-            }
-            
-            /* A caixa FLUTUANTE (Popover) e a LISTA (Menu) */
-            div[data-baseweb="popover"],
-            div[data-baseweb="popover"] > div,
-            ul[data-baseweb="menu"] {
-                background-color: #262730 !important;
-                border: 1px solid #4A4A4A !important;
-            }
+        /* 3. Textos Gerais e Links */
+        h1, h2, h3, h4, h5, h6, p, li, label,
+        .stMarkdown, .stRadio label, .stCheckbox label,
+        section[data-testid="stSidebar"] *,
+        [data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] span {
+          color: #FAFAFA !important;
+        }
 
-            /* ITENS DA LISTA (Opções) */
-            li[data-baseweb="option"] {
-                background-color: #262730 !important;
-                color: #FAFAFA !important;
-            }
-            
-            /* Garante que texto dentro do li (span, div) seja branco */
-            li[data-baseweb="option"] * {
-                color: #FAFAFA !important;
-            }
+        /* 4. Inputs básicos */
+        .stTextInput input,
+        .stNumberInput input,
+        .stDateInput input,
+        .stTimeInput input,
+        .stTextArea textarea {
+          background-color: #262730 !important;
+          color: #FAFAFA !important;
+          border: 1px solid #4A4A4A !important;
+        }
 
-            /* ITEM SELECIONADO OU HOVER */
-            li[data-baseweb="option"]:hover, 
-            li[data-baseweb="option"][aria-selected="true"] {
-                background-color: #FF4B4B !important;
-                color: #FFFFFF !important;
-            }
-             li[data-baseweb="option"]:hover *, 
-            li[data-baseweb="option"][aria-selected="true"] * {
-                color: #FFFFFF !important;
-            }
+        /* Placeholder (inputs e selects) */
+        input::placeholder,
+        textarea::placeholder,
+        div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p {
+          color: #A0A0A0 !important;
+          opacity: 1 !important;
+        }
 
-            /* Ícones (setas) */
-            div[data-baseweb="select"] svg {
-                fill: #FAFAFA !important;
-            }
-            
-            /* Tags do Multiselect */
-            .stMultiSelect [data-baseweb="tag"] {
-                background-color: #FF4B4B !important;
-            }
-            
-            /* Placeholders */
-            ::placeholder { color: #a0a0a0 !important; opacity: 1 !important; }
+        /* =========================================================
+           DROPDOWNS (Selectbox / Multiselect) - BaseWeb
+           ========================================================= */
+
+        /* Caixa do select (fechado) */
+        div[data-baseweb="select"] > div{
+          background-color: #262730 !important;
+          border-color: #4A4A4A !important;
+        }
+        div[data-baseweb="select"] *{
+          color: #FAFAFA !important;
+        }
+
+        /* Popover/lista (aberto): cobre variações do BaseWeb */
+        div[data-baseweb="popover"],
+        div[data-baseweb="popover"] *,
+        ul[data-baseweb="menu"],
+        div[data-baseweb="menu"],
+        div[role="listbox"],
+        div[role="listbox"] * {
+          background-color: #262730 !important;
+          color: #FAFAFA !important;
+          border-color: #4A4A4A !important;
+        }
+
+        /* Opções: cobre li e div + role option */
+        li[data-baseweb="option"],
+        div[data-baseweb="option"],
+        div[role="option"]{
+          background-color: #262730 !important;
+          color: #FAFAFA !important;
+        }
+
+        /* Texto interno das opções */
+        li[data-baseweb="option"] *,
+        div[data-baseweb="option"] *,
+        div[role="option"] *{
+          color: #FAFAFA !important;
+        }
+
+        /* Hover/selecionado */
+        li[data-baseweb="option"]:hover,
+        div[data-baseweb="option"]:hover,
+        div[role="option"]:hover,
+        li[data-baseweb="option"][aria-selected="true"],
+        div[data-baseweb="option"][aria-selected="true"],
+        div[role="option"][aria-selected="true"]{
+          background-color: #FF4B4B !important;
+          color: #FFFFFF !important;
+        }
+        li[data-baseweb="option"]:hover *,
+        div[data-baseweb="option"]:hover *,
+        div[role="option"]:hover *,
+        li[data-baseweb="option"][aria-selected="true"] *,
+        div[data-baseweb="option"][aria-selected="true"] *,
+        div[role="option"][aria-selected="true"] *{
+          color: #FFFFFF !important;
+        }
+
+        /* Ícone/seta */
+        div[data-baseweb="select"] svg{
+          fill: #FAFAFA !important;
+        }
+
+        /* Tags do Multiselect */
+        .stMultiSelect [data-baseweb="tag"]{
+          background-color: #FF4B4B !important;
+          color: #FFFFFF !important;
+        }
+        .stMultiSelect [data-baseweb="tag"] *{
+          color: #FFFFFF !important;
+        }
         </style>
         """
     else:
@@ -178,7 +215,8 @@ def render_page_config_and_css():
         st.markdown(global_dark_override, unsafe_allow_html=True)
 
     # Injeta o CSS dos Cards KPI
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <style>
         .kpi-card {{
             background-color: {kpi_bg};
@@ -200,13 +238,23 @@ def render_page_config_and_css():
             margin-top: 5px;
         }}
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
+
 
 # --- LOADING OVERLAY ---
 def render_loading_overlay(ui_phase: str | None = None):
-    phase = ui_phase or st.session_state.get('ui_phase', 'ready')
-    display = 'flex' if phase == 'loading' else 'none'
-    st.markdown(f"""
+    # compat: aceita "uiphase/ui_phase"
+    phase = (
+        ui_phase
+        or st.session_state.get("uiphase")
+        or st.session_state.get("ui_phase")
+        or "ready"
+    )
+    display = "flex" if phase == "loading" else "none"
+    st.markdown(
+        f"""
     <style>
       #__overlay__ {{
         position: fixed; inset: 0;
@@ -228,14 +276,44 @@ def render_loading_overlay(ui_phase: str | None = None):
       @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
     </style>
     <div id="__overlay__"><div class="loader"></div></div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
+
 
 def overlay_on():
-    st.session_state.ui_phase = 'loading'
-    st.session_state.loading_ts = pytime.time()
-    render_loading_overlay('loading')
+    # compat: escreve nos dois formatos
+    st.session_state.uiphase = "loading"
+    st.session_state.loadingts = pytime.time()
+    st.session_state.ui_phase = "loading"
+    st.session_state.loading_ts = st.session_state.loadingts
+    render_loading_overlay("loading")
+
 
 def overlay_off():
-    st.session_state.ui_phase = 'ready'
+    # compat: escreve nos dois formatos
+    st.session_state.uiphase = "ready"
+    st.session_state.loadingts = 0
+    st.session_state.ui_phase = "ready"
     st.session_state.loading_ts = 0
-    render_loading_overlay('ready')
+    render_loading_overlay("ready")
+
+
+# =========================================================
+# ALIASES PARA COMPATIBILIDADE COM O CÓDIGO DAS PÁGINAS
+# (mantém funcionando quem chama os nomes antigos)
+# =========================================================
+def renderpageconfigandcss():
+    return render_page_config_and_css()
+
+
+def renderloadingoverlay(ui_phase: str | None = None):
+    return render_loading_overlay(ui_phase)
+
+
+def overlayon():
+    return overlay_on()
+
+
+def overlayoff():
+    return overlay_off()
