@@ -44,7 +44,7 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (CORRIGIDO: Contraste Extremo para Inputs e Listas) ---
+# --- CSS E TEMA (CORRIGIDO: Contraste Definitivo para Dropdowns) ---
 def render_page_config_and_css():
     """
     Injeta o CSS dinâmico e controla o tema visual com persistência manual.
@@ -84,7 +84,7 @@ def render_page_config_and_css():
         kpi_text = "#FFFFFF"
         kpi_border = "none"
         
-        # CSS AGRESSIVO PARA CORRIGIR O CONTRASTE
+        # CSS AGRESSIVO PARA CORRIGIR O CONTRASTE (FUNDOS E TEXTOS)
         global_dark_override = """
         <style>
             /* 1. Fundo Global e Texto Base */
@@ -98,74 +98,88 @@ def render_page_config_and_css():
                 background-color: #262730 !important;
             }
             
-            /* 3. Forçar texto branco em títulos e labels */
+            /* 3. Forçar texto branco em títulos, labels e markdown */
             h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label, span, div {
                 color: #FAFAFA;
             }
 
-            /* --- CORREÇÃO DOS INPUTS (Texto, Data, Hora) --- */
+            /* --- CORREÇÃO DE INPUTS (Texto, Data, Hora, Área) --- */
             .stTextInput input, .stNumberInput input, .stDateInput input, .stTimeInput input, .stTextArea textarea {
                 background-color: #262730 !important;
                 color: #FFFFFF !important;
                 border: 1px solid #4A4A4A !important;
             }
-            /* Placeholders (Texto cinza "Selecione...") */
+            /* Texto de ajuda (placeholder) */
             ::placeholder {
-                color: #CCCCCC !important;
+                color: #a3a3a3 !important;
                 opacity: 1 !important;
             }
 
-            /* --- CORREÇÃO CRÍTICA DO DROPDOWN (SELECTBOX) --- */
+            /* --- CORREÇÃO CRÍTICA DO DROPDOWN (SELECTBOX/MULTISELECT) --- */
             
-            /* A caixa fechada (Antes de clicar) */
+            /* A caixa fechada */
             div[data-baseweb="select"] > div {
                 background-color: #262730 !important;
                 border-color: #4A4A4A !important;
                 color: #FFFFFF !important;
             }
             
-            /* O texto dentro da caixa fechada */
-            div[data-baseweb="select"] > div > div {
+            /* Texto dentro da caixa fechada */
+            div[data-baseweb="select"] span {
                 color: #FFFFFF !important;
             }
             
-            /* Os ícones (seta e X) */
+            /* Ícones (seta e X) */
             div[data-baseweb="select"] svg {
                 fill: #FFFFFF !important;
             }
 
-            /* O MENU SUSPENSO (Quando clica e abre) */
+            /* O CONTAINER DO MENU SUSPENSO (POPOVER) */
+            div[data-baseweb="popover"], div[data-baseweb="popover"] > div {
+                background-color: #262730 !important;
+            }
+
+            /* A LISTA DE OPÇÕES (MENU) */
             ul[data-baseweb="menu"] {
                 background-color: #262730 !important;
                 border: 1px solid #4A4A4A !important;
             }
 
-            /* ITENS DA LISTA (Opções normais) */
+            /* CADA ITEM DA LISTA (Opção Normal) */
             li[data-baseweb="option"] {
                 background-color: #262730 !important;
                 color: #FFFFFF !important;
             }
             
-            /* Texto dentro dos itens da lista */
-            li[data-baseweb="option"] div {
+            /* Texto dentro da opção */
+            li[data-baseweb="option"] div, li[data-baseweb="option"] span {
                 color: #FFFFFF !important;
             }
 
-            /* ITEM EM FOCO / MOUSE EM CIMA / SELECIONADO */
+            /* ITEM SELECIONADO OU EM FOCO (HOVER) */
             li[data-baseweb="option"]:hover, 
             li[data-baseweb="option"][aria-selected="true"] {
-                background-color: #FF4B4B !important; /* Fundo Vermelho */
+                background-color: #FF4B4B !important; /* Vermelho destaque */
                 color: #FFFFFF !important;
             }
             
-            /* Corrige textos específicos que podem estar herdando preto */
+            /* Tag do MultiSelect (Item já selecionado na caixa) */
+            .stMultiSelect [data-baseweb="tag"] {
+                background-color: #FF4B4B !important;
+                color: white !important;
+            }
+            .stMultiSelect [data-baseweb="tag"] span {
+                color: white !important;
+            }
+
+            /* Corrige textos da Sidebar que podem sumir */
             [data-testid="stSidebar"] *, [data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] span {
                 color: #FAFAFA !important;
             }
         </style>
         """
     else:
-        # Modo Automático
+        # Modo Automático (Usa variáveis do Streamlit)
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
