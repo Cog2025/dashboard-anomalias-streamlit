@@ -44,29 +44,48 @@ def fetch_sheet_as_df(worksheet):
 def sanitize_key(text):
     return re.sub(r'[^A-Za-z0-9_]', '_', str(text))
 
-# --- CSS E TEMA (CORRIGIDO: Persistência + Links Visíveis) ---
+# --- CSS E TEMA (CORRIGIDO: Persistência Robusta + Links) ---
 def render_page_config_and_css():
     """
-    Injeta o CSS dinâmico e controla o tema visual com persistência.
+    Injeta o CSS dinâmico e controla o tema visual com persistência manual.
     """
     st.sidebar.markdown("### 🎨 Visual")
     
-    # Adicionamos 'key' para manter a escolha ao mudar de página
+    # Opções do menu
+    opcoes = ["Automático (Claro/Escuro)", "Sempre Escuro"]
+    
+    # 1. Inicializa a memória do tema se ela não existir
+    if "tema_escolhido" not in st.session_state:
+        st.session_state.tema_escolhido = opcoes[0]
+
+    # 2. Descobre qual o índice da opção salva na memória
+    try:
+        index_atual = opcoes.index(st.session_state.tema_escolhido)
+    except ValueError:
+        index_atual = 0
+
+    # 3. Função para atualizar a memória quando o usuário clicar
+    def atualizar_tema():
+        st.session_state.tema_escolhido = st.session_state.key_radio_tema
+
+    # 4. Renderiza o botão usando o índice da memória
     tema_cards = st.sidebar.radio(
         "Fundo dos Indicadores:",
-        options=["Automático (Claro/Escuro)", "Sempre Escuro"],
-        index=0,
-        key="tema_visual_persistente" 
+        options=opcoes,
+        index=index_atual,       # Força a seleção correta ao carregar a página
+        key="key_radio_tema",    # Chave única do widget
+        on_change=atualizar_tema # Salva a escolha imediatamente
     )
 
     global_dark_override = ""
     
+    # Lógica de cores baseada na escolha (tema_cards)
     if tema_cards == "Sempre Escuro":
         kpi_bg = "#333333"
         kpi_text = "#FFFFFF"
         kpi_border = "none"
         
-        # CSS para forçar modo escuro e CORRIGIR LINKS da sidebar
+        # CSS para forçar modo escuro e corrigir links/textos
         global_dark_override = """
         <style>
             /* Fundo e texto base da aplicação */
@@ -80,22 +99,18 @@ def render_page_config_and_css():
                 background-color: #262730 !important;
             }
             
-            /* Força cor BRANCA em todos os elementos da Sidebar (Links, Textos, Ícones) */
+            /* Força cor BRANCA em todos os elementos da Sidebar e textos gerais */
             [data-testid="stSidebar"] *, 
             [data-testid="stSidebar"] a, 
             [data-testid="stSidebar"] span, 
             [data-testid="stSidebar"] p, 
             [data-testid="stSidebarNav"] a,
-            [data-testid="stSidebarNav"] span {
-                color: #FAFAFA !important;
-            }
-
-            /* Textos gerais (Títulos, Markdown, Labels) */
+            [data-testid="stSidebarNav"] span,
             h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .stRadio label, .stCheckbox label {
                 color: #FAFAFA !important;
             }
             
-            /* Inputs (Caixas de texto e seleção) para não ficarem brancos no fundo branco */
+            /* Inputs para não ficarem brancos no fundo branco */
             .stTextInput > div > div, .stSelectbox > div > div, .stMultiSelect > div > div {
                 background-color: #262730 !important;
                 color: white !important;
@@ -103,12 +118,12 @@ def render_page_config_and_css():
         </style>
         """
     else:
-        # Modo Automático (segue o navegador)
+        # Modo Automático
         kpi_bg = "var(--secondary-background-color)"
         kpi_text = "var(--text-color)"
         kpi_border = "1px solid rgba(128, 128, 128, 0.2)"
 
-    # Injeta o CSS Global (se houver override)
+    # Injeta o CSS Global
     if global_dark_override:
         st.markdown(global_dark_override, unsafe_allow_html=True)
 
