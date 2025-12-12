@@ -84,8 +84,8 @@ def sanitizekey(text):
 # =========================================================
 def _inject_common_css():
     """
-    CSS que deve valer no tema claro e escuro (grid dias + toggle sidebar).
-    Observação: o toggle usa variáveis CSS:
+    CSS que vale para claro e escuro.
+    Importante: o toggle usa variáveis:
       --sb_toggle_bg
       --sb_toggle_border
       --sb_toggle_fg
@@ -94,7 +94,7 @@ def _inject_common_css():
         """
 <style>
 /* =========================================================
-   0) NÚMERO DO DIA (quando checkbox está sem label)
+   0) NÚMERO DO DIA (checkbox sem label)
    ========================================================= */
 .day-num{
   width: 100%;
@@ -108,29 +108,36 @@ def _inject_common_css():
 }
 
 /* =========================================================
-   1) GRID DE DIAS (checkboxes) - (não atrapalha com checkbox sem label)
+   1) GRID DE DIAS (checkboxes)
    ========================================================= */
-div[data-testid="stExpander"] label[data-baseweb="checkbox"]{
-  display: flex !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 6px !important;
-}
-div[data-testid="stExpander"] label[data-baseweb="checkbox"] > div:last-child,
-div[data-testid="stExpander"] label[data-baseweb="checkbox"] > span:last-child{
-  min-width: 2.6ch !important;
-  text-align: center !important;
-  white-space: nowrap !important;
-  font-variant-numeric: tabular-nums !important;
-}
 div[data-testid="stExpander"] div[data-testid="stCheckbox"]{
   margin: 0 !important;
   padding: 0 !important;
 }
 
 /* =========================================================
-   2) SIDEBAR TOGGLE - SEMPRE VISÍVEL (sem depender de hover)
+   2) SIDEBAR TOGGLE - SEMPRE VISÍVEL
+   ---------------------------------------------------------
+   Motivo: em algumas versões o Streamlit aplica opacity:0
+   fora do hover. Então forçamos visibilidade no botão e,
+   principalmente, no(s) containers pais.
    ========================================================= */
+
+/* Pais que frequentemente “somem” fora do hover */
+header,
+section[data-testid="stSidebar"],
+div[data-testid="stSidebarCollapsedControl"]{
+  overflow: visible !important;
+}
+
+/* Se o browser suportar :has(), garante o pai visível */
+header:has(button[aria-label*="sidebar" i]),
+section[data-testid="stSidebar"]:has(button[aria-label*="sidebar" i]),
+div:has(> button[aria-label*="sidebar" i]){
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
 
 /* Wrapper do botão recolhido (algumas versões) */
 div[data-testid="stSidebarCollapsedControl"],
@@ -140,60 +147,45 @@ div[data-testid="stSidebarCollapsedControl"] *{
   pointer-events: auto !important;
 }
 
-/* Lista de seletores do botão (varia por versão/ambiente) */
+/* Botões: pega por data-testid E por aria-label (mais estável) */
 button[data-testid="collapsedControl"],
 button[data-testid="stSidebarCollapseButton"],
 section[data-testid="stSidebar"] button[kind="header"],
 header button[kind="header"],
-/* fallback por aria-label (bem mais estável) */
-button[aria-label="Collapse sidebar"],
-button[aria-label="Expand sidebar"],
-button[aria-label="Open sidebar"],
-button[aria-label="Close sidebar"],
-button[aria-label="Toggle sidebar"]{
-  /* Força aparecer mesmo fora do hover */
+button[aria-label*="sidebar" i]{
   display: inline-flex !important;
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
+  z-index: 999999 !important;
 
-  /* Aparência */
-  background: var(--sb_toggle_bg, rgba(255,255,255,.95)) !important;
-  border: 1px solid var(--sb_toggle_border, rgba(0,0,0,.25)) !important;
+  background: var(--sb_toggle_bg, rgba(255,255,255,.96)) !important;
+  border: 1px solid var(--sb_toggle_border, rgba(0,0,0,.30)) !important;
   border-radius: 10px !important;
   box-shadow: 0 2px 10px rgba(0,0,0,.25) !important;
 
-  /* Cor do ícone via currentColor */
-  color: var(--sb_toggle_fg, #0E1117) !important;
+  color: var(--sb_toggle_fg, #111111) !important; /* para ícones que usam currentColor */
 }
 
-/* SVG do ícone: força fill/stroke em qualquer implementação */
+/* SVG do ícone */
 button[data-testid="collapsedControl"] svg,
 button[data-testid="stSidebarCollapseButton"] svg,
 section[data-testid="stSidebar"] button[kind="header"] svg,
 header button[kind="header"] svg,
-button[aria-label="Collapse sidebar"] svg,
-button[aria-label="Expand sidebar"] svg,
-button[aria-label="Open sidebar"] svg,
-button[aria-label="Close sidebar"] svg,
-button[aria-label="Toggle sidebar"] svg{
-  fill: var(--sb_toggle_fg, #0E1117) !important;
-  stroke: var(--sb_toggle_fg, #0E1117) !important;
-  color: var(--sb_toggle_fg, #0E1117) !important;
+button[aria-label*="sidebar" i] svg{
+  fill: var(--sb_toggle_fg, #111111) !important;
+  stroke: var(--sb_toggle_fg, #111111) !important;
+  color: var(--sb_toggle_fg, #111111) !important;
 }
 
-/* Alguns temas setam fill/stroke nos paths */
+/* Paths internos do SVG (muitos temas sobrescrevem aqui) */
 button[data-testid="collapsedControl"] svg *,
 button[data-testid="stSidebarCollapseButton"] svg *,
 section[data-testid="stSidebar"] button[kind="header"] svg *,
 header button[kind="header"] svg *,
-button[aria-label="Collapse sidebar"] svg *,
-button[aria-label="Expand sidebar"] svg *,
-button[aria-label="Open sidebar"] svg *,
-button[aria-label="Close sidebar"] svg *,
-button[aria-label="Toggle sidebar"] svg *{
-  fill: var(--sb_toggle_fg, #0E1117) !important;
-  stroke: var(--sb_toggle_fg, #0E1117) !important;
+button[aria-label*="sidebar" i] svg *{
+  fill: var(--sb_toggle_fg, #111111) !important;
+  stroke: var(--sb_toggle_fg, #111111) !important;
 }
 </style>
 """,
@@ -231,42 +223,44 @@ def render_page_config_and_css():
     )
 
     # ---------------------------------------------------------
-    # Variáveis do botão de sidebar:
-    # - Em "Sempre Escuro": branco no ícone + fundo escuro
-    # - Em "Automático": usa media query do sistema (prefers-color-scheme)
+    # Variáveis do toggle (para o CSS “sempre visível”)
     # ---------------------------------------------------------
     if tema_cards == "Sempre Escuro":
-        toggle_vars_css = """
-        <style>
-          :root{
-            --sb_toggle_bg: rgba(38,39,48,.96);
-            --sb_toggle_border: rgba(255,255,255,.55);
-            --sb_toggle_fg: #FFFFFF;
-          }
-        </style>
-        """
+        st.markdown(
+            """
+<style>
+:root{
+  --sb_toggle_bg: rgba(38,39,48,.96);
+  --sb_toggle_border: rgba(255,255,255,.60);
+  --sb_toggle_fg: #FFFFFF;
+}
+</style>
+""",
+            unsafe_allow_html=True,
+        )
     else:
-        # Base: claro
-        toggle_vars_css = """
-        <style>
-          :root{
-            --sb_toggle_bg: rgba(255,255,255,.96);
-            --sb_toggle_border: rgba(0,0,0,.25);
-            --sb_toggle_fg: #0E1117;
-          }
-          @media (prefers-color-scheme: dark){
-            :root{
-              --sb_toggle_bg: rgba(38,39,48,.96);
-              --sb_toggle_border: rgba(255,255,255,.55);
-              --sb_toggle_fg: #FFFFFF;
-            }
-          }
-        </style>
-        """
+        # Automático: claro por padrão + escuro via media query
+        st.markdown(
+            """
+<style>
+:root{
+  --sb_toggle_bg: rgba(255,255,255,.96);
+  --sb_toggle_border: rgba(0,0,0,.30);
+  --sb_toggle_fg: #111111;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --sb_toggle_bg: rgba(38,39,48,.96);
+    --sb_toggle_border: rgba(255,255,255,.60);
+    --sb_toggle_fg: #FFFFFF;
+  }
+}
+</style>
+""",
+            unsafe_allow_html=True,
+        )
 
-    st.markdown(toggle_vars_css, unsafe_allow_html=True)
-
-    # CSS comum (claro + escuro) - usa as vars acima
+    # CSS comum (claro + escuro)
     _inject_common_css()
 
     global_dark_override = ""
@@ -370,7 +364,7 @@ def render_page_config_and_css():
           color: #FFFFFF !important;
         }
 
-        /* Ícone/seta do select */
+        /* Ícone/seta */
         div[data-baseweb="select"] svg{
           fill: #FAFAFA !important;
         }
@@ -440,6 +434,9 @@ def render_page_config_and_css():
     """,
         unsafe_allow_html=True,
     )
+
+    # Reaplica no FINAL para tentar vencer qualquer CSS posterior do Streamlit
+    _inject_common_css()
 
 
 # Alias compat
