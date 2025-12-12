@@ -84,11 +84,9 @@ def sanitizekey(text):
 # =========================================================
 def _inject_common_css():
     """
-    CSS que vale para claro e escuro.
-    Importante: o toggle usa variáveis:
-      --sb_toggle_bg
-      --sb_toggle_border
-      --sb_toggle_fg
+    CSS que vale no tema claro e escuro.
+    IMPORTANTE: o toggle da sidebar (setinha) no Streamlit Cloud pode ser
+    um <span data-testid="stIconMaterial"> (Material Symbols), não SVG.
     """
     st.markdown(
         """
@@ -108,7 +106,7 @@ def _inject_common_css():
 }
 
 /* =========================================================
-   1) GRID DE DIAS (checkboxes)
+   1) GRID DE DIAS (checkboxes) - (não atrapalha com checkbox sem label)
    ========================================================= */
 div[data-testid="stExpander"] div[data-testid="stCheckbox"]{
   margin: 0 !important;
@@ -116,30 +114,29 @@ div[data-testid="stExpander"] div[data-testid="stCheckbox"]{
 }
 
 /* =========================================================
-   2) SIDEBAR TOGGLE - SEMPRE VISÍVEL
+   2) TOGGLE DA SIDEBAR (SETINHA) - SEMPRE VISÍVEL
    ---------------------------------------------------------
-   Motivo: em algumas versões o Streamlit aplica opacity:0
-   fora do hover. Então forçamos visibilidade no botão e,
-   principalmente, no(s) containers pais.
+   A estratégia aqui é:
+   - forçar opacidade/visibilidade no(s) botões
+   - forçar também no ícone Material (stIconMaterial)
+   - usar variáveis --sb_toggle_* para cores (claro/escuro)
    ========================================================= */
 
-/* Pais que frequentemente “somem” fora do hover */
-header,
-section[data-testid="stSidebar"],
-div[data-testid="stSidebarCollapsedControl"]{
-  overflow: visible !important;
+/* Variáveis padrão (Automático) */
+:root{
+  --sb_toggle_bg: rgba(255,255,255,.96);
+  --sb_toggle_border: rgba(0,0,0,.30);
+  --sb_toggle_fg: #111111;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --sb_toggle_bg: rgba(38,39,48,.96);
+    --sb_toggle_border: rgba(255,255,255,.60);
+    --sb_toggle_fg: #FFFFFF;
+  }
 }
 
-/* Se o browser suportar :has(), garante o pai visível */
-header:has(button[aria-label*="sidebar" i]),
-section[data-testid="stSidebar"]:has(button[aria-label*="sidebar" i]),
-div:has(> button[aria-label*="sidebar" i]){
-  opacity: 1 !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-}
-
-/* Wrapper do botão recolhido (algumas versões) */
+/* Wrapper do controle recolhido (muito comum no Cloud) */
 div[data-testid="stSidebarCollapsedControl"],
 div[data-testid="stSidebarCollapsedControl"] *{
   opacity: 1 !important;
@@ -147,45 +144,48 @@ div[data-testid="stSidebarCollapsedControl"] *{
   pointer-events: auto !important;
 }
 
-/* Botões: pega por data-testid E por aria-label (mais estável) */
+/* Alguns builds colocam o botão no header */
+header, header *{
+  overflow: visible !important;
+}
+
+/* Botões candidatos (expandido e recolhido) */
 button[data-testid="collapsedControl"],
 button[data-testid="stSidebarCollapseButton"],
 section[data-testid="stSidebar"] button[kind="header"],
-header button[kind="header"],
-button[aria-label*="sidebar" i]{
+header button[kind="header"]{
   display: inline-flex !important;
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
   z-index: 999999 !important;
 
-  background: var(--sb_toggle_bg, rgba(255,255,255,.96)) !important;
-  border: 1px solid var(--sb_toggle_border, rgba(0,0,0,.30)) !important;
+  background: var(--sb_toggle_bg) !important;
+  border: 1px solid var(--sb_toggle_border) !important;
   border-radius: 10px !important;
   box-shadow: 0 2px 10px rgba(0,0,0,.25) !important;
 
-  color: var(--sb_toggle_fg, #111111) !important; /* para ícones que usam currentColor */
+  /* Para casos em que o ícone herda do botão */
+  color: var(--sb_toggle_fg) !important;
 }
 
-/* SVG do ícone */
-button[data-testid="collapsedControl"] svg,
-button[data-testid="stSidebarCollapseButton"] svg,
-section[data-testid="stSidebar"] button[kind="header"] svg,
-header button[kind="header"] svg,
-button[aria-label*="sidebar" i] svg{
-  fill: var(--sb_toggle_fg, #111111) !important;
-  stroke: var(--sb_toggle_fg, #111111) !important;
-  color: var(--sb_toggle_fg, #111111) !important;
+/* CASO REAL DO SEU PRINT: Material Symbol (não é SVG) */
+button[data-testid="collapsedControl"] span[data-testid="stIconMaterial"],
+button[data-testid="stSidebarCollapseButton"] span[data-testid="stIconMaterial"],
+section[data-testid="stSidebar"] button[kind="header"] span[data-testid="stIconMaterial"],
+header button[kind="header"] span[data-testid="stIconMaterial"]{
+  opacity: 1 !important;
+  visibility: visible !important;
+
+  /* Cor do glifo */
+  color: var(--sb_toggle_fg) !important;
 }
 
-/* Paths internos do SVG (muitos temas sobrescrevem aqui) */
-button[data-testid="collapsedControl"] svg *,
-button[data-testid="stSidebarCollapseButton"] svg *,
-section[data-testid="stSidebar"] button[kind="header"] svg *,
-header button[kind="header"] svg *,
-button[aria-label*="sidebar" i] svg *{
-  fill: var(--sb_toggle_fg, #111111) !important;
-  stroke: var(--sb_toggle_fg, #111111) !important;
+/* Extra: às vezes o Streamlit reduz o botão fora do hover via opacity em estados específicos */
+section[data-testid="stSidebar"] button[kind="header"]:not(:hover),
+header button[kind="header"]:not(:hover){
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 </style>
 """,
@@ -222,9 +222,8 @@ def render_page_config_and_css():
         on_change=atualizar_tema,
     )
 
-    # ---------------------------------------------------------
-    # Variáveis do toggle (para o CSS “sempre visível”)
-    # ---------------------------------------------------------
+    # Se usuário escolheu "Sempre Escuro", sobrescreve as vars do toggle
+    # (isso garante branco sempre, inclusive se o SO estiver em claro).
     if tema_cards == "Sempre Escuro":
         st.markdown(
             """
@@ -238,29 +237,8 @@ def render_page_config_and_css():
 """,
             unsafe_allow_html=True,
         )
-    else:
-        # Automático: claro por padrão + escuro via media query
-        st.markdown(
-            """
-<style>
-:root{
-  --sb_toggle_bg: rgba(255,255,255,.96);
-  --sb_toggle_border: rgba(0,0,0,.30);
-  --sb_toggle_fg: #111111;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --sb_toggle_bg: rgba(38,39,48,.96);
-    --sb_toggle_border: rgba(255,255,255,.60);
-    --sb_toggle_fg: #FFFFFF;
-  }
-}
-</style>
-""",
-            unsafe_allow_html=True,
-        )
 
-    # CSS comum (claro + escuro)
+    # CSS comum (vale para ambos os temas)
     _inject_common_css()
 
     global_dark_override = ""
@@ -310,8 +288,6 @@ def render_page_config_and_css():
         /* =========================================================
            DROPDOWNS (Selectbox / Multiselect) - BaseWeb
            ========================================================= */
-
-        /* Caixa do select (fechado) */
         div[data-baseweb="select"] > div{
           background-color: #262730 !important;
           border-color: #4A4A4A !important;
@@ -320,7 +296,6 @@ def render_page_config_and_css():
           color: #FAFAFA !important;
         }
 
-        /* Popover/lista (aberto) */
         div[data-baseweb="popover"],
         div[data-baseweb="popover"] *,
         ul[data-baseweb="menu"],
@@ -332,7 +307,6 @@ def render_page_config_and_css():
           border-color: #4A4A4A !important;
         }
 
-        /* Opções */
         li[data-baseweb="option"],
         div[data-baseweb="option"],
         div[role="option"]{
@@ -345,7 +319,6 @@ def render_page_config_and_css():
           color: #FAFAFA !important;
         }
 
-        /* Hover/selecionado */
         li[data-baseweb="option"]:hover,
         div[data-baseweb="option"]:hover,
         div[role="option"]:hover,
@@ -364,12 +337,10 @@ def render_page_config_and_css():
           color: #FFFFFF !important;
         }
 
-        /* Ícone/seta */
         div[data-baseweb="select"] svg{
           fill: #FAFAFA !important;
         }
 
-        /* Tags do Multiselect */
         .stMultiSelect [data-baseweb="tag"]{
           background-color: #FF4B4B !important;
           color: #FFFFFF !important;
@@ -435,7 +406,7 @@ def render_page_config_and_css():
         unsafe_allow_html=True,
     )
 
-    # Reaplica no FINAL para tentar vencer qualquer CSS posterior do Streamlit
+    # Reaplica no FINAL para tentar vencer CSS posterior do Streamlit
     _inject_common_css()
 
 
@@ -448,7 +419,6 @@ def renderpageconfigandcss():
 # LOADING OVERLAY
 # =========================================================
 def render_loading_overlay(ui_phase: str | None = None):
-    # compat: aceita uiphase/ui_phase
     phase = (
         ui_phase
         or st.session_state.get("uiphase")
@@ -486,7 +456,6 @@ def render_loading_overlay(ui_phase: str | None = None):
 
 
 def overlay_on():
-    # compat: escreve nos dois formatos usados no projeto
     st.session_state.uiphase = "loading"
     st.session_state.loadingts = pytime.time()
     st.session_state.ui_phase = "loading"
